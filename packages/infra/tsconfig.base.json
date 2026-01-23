@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "baseUrl": "../../",
+    "paths": {
+      "@auth/*": ["packages/auth/*"],
+      "@db/*": ["packages/db/*"],
+      "@shared/*": ["packages/shared-types/*"]
+    }
+  }
+}

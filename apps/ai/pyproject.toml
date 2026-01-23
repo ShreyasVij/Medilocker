@@ -1,0 +1,17 @@
+[project]
+name = "ai"
+version = "0.1.0"
+description = "AI services for MediLocker"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic",
+    "requests",
+    "PyMuPDF",
+    "python-multipart",
+    "pdfminer.six",
+    "supabase",
+    "pymongo[srv]",
+]

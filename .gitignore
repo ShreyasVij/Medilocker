@@ -1,0 +1,121 @@
+
+# Root-level ignores for OS, editors, build artifacts, caches, and secrets
+
+# Node
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+yarn.lock
+pnpm-lock.yaml
+
+# Next.js / build
+.next
+.next/
+**/.next/
+apps/web/.next/
+apps/web/.next/**
+out/
+dist/
+build/
+public/build/
+
+# Vercel, Turbo, caches
+.vercel/
+.turbo/
+.cache/
+.parcel-cache/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Logs
+*.log
+**/*.log
+logs/
+**/logs/
+.coverage
+
+# AI service logs and caches
+apps/ai/logs/
+apps/ai/logs/*.log
+apps/ai/.cache/
+apps/ai/.env.local
+apps/ai/.env
+apps/ai/.env.*.local
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Coverage
+coverage/
+**/coverage/
+.nyc_output/
+
+# TypeScript
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+venv/
+env/
+.venv/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Misc
+coverage/
+reports/
+.cache/
+tmp/
+temp/
+
+# Project-specific (web app)
+apps/web/node_modules/
+apps/web/.next/
+D:\College Work\hackathon\Ideathon '25\Team-Pec-ke-lal\apps\web\.next
+apps/web/out/
+apps/web/dist/
+apps/web/build/
+apps/web/.env.local
+apps/web/.env
+apps/web/.env.*.local
+
+apps/web/pnpm-lock.yaml
+apps/web/.vercel/
+apps/web/.turbo/
+apps/web/.next-internal/
+
+# JetBrains
+*.iml
+.idea/
+
+# Ignore build outputs
+dist/
+build/
+release/
+
+Team-Pec-ke-lal/apps/web/.next
+
+web/.next/dev/cache/next-devtools-config.json
+web/.next/dev/logs/next-development.log
+web/.next/dev/prerender-manifest.json
+web/.next/dev/server/app-paths-manifest.json
+web/.next/dev/trace
