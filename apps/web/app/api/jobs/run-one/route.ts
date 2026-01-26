@@ -7,7 +7,7 @@ import type { JobDocument } from '@/../../packages/db/jobs';
 import type { DocumentDocument } from '@/../../packages/db/documents';
 import { createDownloadUrl } from '@/services/storageClient';
 import { logAudit } from '@/lib/audit';
-import { callExtract, callSummarize } from '@/services/aiClient';
+import { callExtract, callSummarize, callExtractMulti } from '@/services/aiClient';
 import type { OcrOutputDocument } from '@/../../packages/db/ocrOutputs';
 
 function isAuthorized(req: NextRequest): boolean {
@@ -70,7 +70,6 @@ export async function POST(request: NextRequest) {
           throw new Error('missing storageKey(s)');
         }
       const data = extract?.data || {};
-          payload: { documentId: docId, versionId, storageKey, profileId, ownerUserId: actorId },
 
       // Mark job completed via existing completion route
       const completeRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/jobs/complete`, {
@@ -98,7 +97,7 @@ export async function POST(request: NextRequest) {
         fileName: `${documentId}-ocr.txt`, 
         contentBase64: textBase64 
       });
-      const docMeta = extractRes || {};
+      const docMeta = extractRes?.data || {};
 
       // Complete the job with the extracted metadata
       const completeRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/jobs/complete`, {
