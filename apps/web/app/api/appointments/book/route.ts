@@ -5,6 +5,7 @@ import { getCollection } from "@/lib/db";
 import type { AppointmentDocument, DoctorDocument, DoctorFileDocument } from "@db/doctors";
 import type { UserDocument } from "@db/users";
 import type { DocumentDocument } from "@db/documents";
+import type { ProfileDocument } from "@db/profiles";
 import { ObjectId } from "mongodb";
 
 /**
@@ -77,8 +78,8 @@ export async function POST(req: Request) {
     }
 
     // Get patient profile for additional info
-    const profiles = await getCollection("profiles");
-    const patientProfile = await profiles.findOne({ userId: patient._id });
+    const profiles = await getCollection<ProfileDocument>("profiles");
+    const patientProfile = await profiles.findOne({ userId: patient._id.toString() } as any);
 
     // Check for double booking using unique index
     // MongoDB will throw error if appointment already exists for same doctor + date + time
@@ -87,8 +88,9 @@ export async function POST(req: Request) {
     try {
       // Calculate age from profile if available
       let patientAge: number | undefined;
-      if (patientProfile?.dob) {
-        const birthDate = new Date(patientProfile.dob);
+      const dobSource = patientProfile?.dateOfBirth || patient.profile?.dob;
+      if (dobSource) {
+        const birthDate = new Date(dobSource);
         const today = new Date();
         patientAge = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -99,7 +101,7 @@ export async function POST(req: Request) {
 
       // Get gender from profile - try both user.profile and profiles collection
       let patientGender: "Male" | "Female" | "Other" | undefined;
-      const genderSource = patientProfile?.gender || (patient as any).profile?.gender;
+      const genderSource = (patientProfile as any)?.gender || patient.profile?.gender;
       if (genderSource) {
         const gender = genderSource.toLowerCase();
         if (gender === "male") patientGender = "Male";
