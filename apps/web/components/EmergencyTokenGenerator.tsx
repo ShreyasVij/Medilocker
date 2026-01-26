@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ShieldAlert, QrCode, Copy, Check, AlertTriangle, Clock, X, RefreshCw } from 'lucide-react';
+import { ShieldAlert, QrCode, Copy, Check, AlertTriangle, RefreshCw, Printer, Download } from 'lucide-react';
 
 interface EmergencyTokenGeneratorProps {
   profileId: string;
@@ -10,9 +10,9 @@ interface EmergencyTokenGeneratorProps {
 interface ActiveToken {
   id: string;
   createdAt: string;
-  expiresAt: string;
-  used: boolean;
   revoked: boolean;
+  accessCount: number;
+  lastAccessedAt?: string;
 }
 
 interface TokenResponse {
@@ -21,8 +21,8 @@ interface TokenResponse {
   tokenId: string;
   qrCode: string;
   url: string;
-  expiresAt: string;
-  ttlMinutes: number;
+  isPermanent: boolean;
+  regenerated: boolean;
   warning: string;
 }
 
@@ -32,7 +32,6 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
   const [activeTokens, setActiveTokens] = useState<ActiveToken[]>([]);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState<number>(0);
   
   const fetchActiveTokens = async () => {
     try {
@@ -51,27 +50,6 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
     fetchActiveTokens();
   }, [profileId]);
   
-  // Update countdown timer
-  useEffect(() => {
-    if (!generatedToken) return;
-    
-    const expiresAt = new Date(generatedToken.expiresAt).getTime();
-    const updateTimer = () => {
-      const now = Date.now();
-      const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
-      setTimeRemaining(remaining);
-      
-      if (remaining === 0) {
-        setGeneratedToken(null);
-      }
-    };
-    
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    
-    return () => clearInterval(interval);
-  }, [generatedToken]);
-  
   const generateToken = async () => {
     setLoading(true);
     setError(null);
@@ -80,7 +58,7 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
       const response = await fetch('/api/emergency/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileId, ttlMinutes: 10 }),
+        body: JSON.stringify({ profileId }),
       });
       
       const data = await response.json();
@@ -99,6 +77,39 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
     }
   };
   
+  const regenerateQR = async () => {
+    if (!generatedToken) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/emergency/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          profileId, 
+          regenerate: true,
+          oldToken: generatedToken.token
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to regenerate token');
+      }
+      
+      setGeneratedToken(data);
+      await fetchActiveTokens();
+      
+    } catch (err: any) {
+      setError(err.message || 'Failed to regenerate emergency token');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -109,22 +120,21 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
     }
   };
   
-  const revokeToken = async (token?: string) => {
+  const revokeToken = async (revokeAll: boolean = false) => {
     try {
       const response = await fetch('/api/emergency/revoke', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           profileId,
-          token,
-          revokeAll: !token,
+          revokeAll,
         }),
       });
       
       const data = await response.json();
       
       if (data.success) {
-        if (!token) {
+        if (revokeAll) {
           setGeneratedToken(null);
         }
         await fetchActiveTokens();
@@ -134,15 +144,117 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
     }
   };
   
-  const extendAccess = async () => {
-    // Generate a new token (extension)
-    await generateToken();
+  const printQR = async () => {
+    if (!generatedToken) return;
+    
+    // Mark token as printed
+    try {
+      await fetch('/api/emergency/print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: generatedToken.token }),
+      });
+    } catch (err) {
+      console.error('Failed to mark as printed:', err);
+    }
+    
+    // Create printable page
+    const printWindow = window.open('', '', 'width=800,height=600');
+    if (!printWindow) return;
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Emergency Medical QR Code</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              padding: 40px;
+              margin: 0;
+            }
+            .card {
+              border: 3px solid #dc2626;
+              border-radius: 16px;
+              padding: 32px;
+              text-align: center;
+              max-width: 400px;
+              background: white;
+            }
+            h1 {
+              color: #dc2626;
+              font-size: 24px;
+              margin: 0 0 16px 0;
+              font-weight: bold;
+            }
+            .qr {
+              margin: 20px 0;
+            }
+            .qr img {
+              width: 300px;
+              height: 300px;
+              border: 2px solid #e5e7eb;
+              border-radius: 8px;
+              padding: 12px;
+            }
+            .instructions {
+              font-size: 14px;
+              color: #374151;
+              margin: 16px 0;
+              line-height: 1.6;
+            }
+            .emergency {
+              background: #fef3c7;
+              border: 2px solid #f59e0b;
+              border-radius: 8px;
+              padding: 12px;
+              margin-top: 20px;
+              font-size: 13px;
+              color: #78350f;
+              font-weight: 600;
+            }
+            @media print {
+              body { padding: 0; }
+              .card { border: 3px solid #dc2626; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>⚕️ EMERGENCY MEDICAL QR</h1>
+            <div class="qr">
+              <img src="${generatedToken.qrCode}" alt="Emergency QR Code" />
+            </div>
+            <div class="instructions">
+              <strong>In case of emergency, scan this QR code</strong><br/>
+              to access critical medical information
+            </div>
+            <div class="emergency">
+              ⚠️ KEEP IN WALLET OR WEAR AS BRACELET
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
   };
   
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const downloadQR = () => {
+    if (!generatedToken) return;
+    
+    const link = document.createElement('a');
+    link.href = generatedToken.qrCode;
+    link.download = 'emergency-medical-qr.png';
+    link.click();
   };
   
   return (
@@ -153,21 +265,23 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
         <div>
           <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <ShieldAlert className="h-6 w-6 text-red-600" />
-            Emergency Access
+            Emergency QR Code
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            Generate a secure, single-use token for emergency medical access
+            Generate a permanent, reusable QR code for emergency medical access
           </p>
         </div>
         
-        <button
-          onClick={generateToken}
-          disabled={loading || !!generatedToken}
-          className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center gap-2 font-semibold"
-        >
-          <ShieldAlert className="h-5 w-5" />
-          {loading ? 'Generating...' : 'Generate Token'}
-        </button>
+        {!generatedToken && (
+          <button
+            onClick={generateToken}
+            disabled={loading}
+            className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center gap-2 font-semibold"
+          >
+            <QrCode className="h-5 w-5" />
+            {loading ? 'Generating...' : 'Generate QR Code'}
+          </button>
+        )}
       </div>
       
       {/* Error */}
@@ -185,33 +299,24 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
       {generatedToken && (
         <div className="bg-gradient-to-br from-red-50 to-orange-50 border-2 border-red-500 rounded-lg p-6 shadow-lg">
           
-          {/* Timer */}
-          <div className="flex items-center justify-between mb-4 pb-4 border-b border-red-200">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-red-600" />
-              <span className="font-semibold text-gray-900">Time Remaining:</span>
-            </div>
-            <span className="text-2xl font-mono font-bold text-red-600">
-              {formatTime(timeRemaining)}
-            </span>
-          </div>
-          
           {/* Warning */}
-          <div className="bg-red-600 text-white rounded-lg p-4 mb-4">
-            <p className="font-semibold mb-2">⚠️ SECURITY WARNING</p>
+          <div className="bg-red-600 text-white rounded-lg p-4 mb-6">
+            <p className="font-semibold mb-2">⚠️ PERMANENT QR CODE</p>
             <p className="text-sm">{generatedToken.warning}</p>
           </div>
           
-          {/* QR Code */}
+          {/* QR Code and Actions */}
           <div className="flex flex-col md:flex-row gap-6">
             <div className="flex-shrink-0">
-              <div className="bg-white p-4 rounded-lg shadow-md border-2 border-gray-200">
+              <div className="bg-white p-6 rounded-lg shadow-md border-2 border-gray-200">
                 <img
                   src={generatedToken.qrCode}
                   alt="Emergency Access QR Code"
-                  className="w-48 h-48"
+                  className="w-64 h-64"
                 />
-                <p className="text-xs text-gray-600 text-center mt-2">Scan to access</p>
+                <p className="text-xs text-gray-600 text-center mt-3 font-semibold">
+                  SCAN FOR EMERGENCY ACCESS
+                </p>
               </div>
             </div>
             
@@ -248,52 +353,50 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
                 </div>
               </div>
               
-              {/* Token (optional, for manual entry) */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Token (for manual entry)
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={generatedToken.token}
-                    readOnly
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-xs font-mono"
-                  />
-                  <button
-                    onClick={() => copyToClipboard(generatedToken.token)}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-              
-              {/* Actions */}
-              <div className="flex gap-2 pt-2">
+              {/* Print & Download Actions */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
                 <button
-                  onClick={() => revokeToken(generatedToken.token)}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2"
+                  onClick={printQR}
+                  className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 font-semibold"
                 >
-                  <X className="h-4 w-4" />
-                  Revoke Now
+                  <Printer className="h-5 w-5" />
+                  Print QR
                 </button>
                 <button
-                  onClick={extendAccess}
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition flex items-center justify-center gap-2"
+                  onClick={downloadQR}
+                  className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2 font-semibold"
                 >
-                  <RefreshCw className="h-4 w-4" />
-                  Extend (New Token)
+                  <Download className="h-5 w-5" />
+                  Download
+                </button>
+              </div>
+              
+              {/* Regenerate & Revoke */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={regenerateQR}
+                  disabled={loading}
+                  className="px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-300 transition flex items-center justify-center gap-2 font-semibold"
+                >
+                  <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+                  Regenerate
+                </button>
+                <button
+                  onClick={() => revokeToken(true)}
+                  className="px-4 py-3 bg-red-700 text-white rounded-lg hover:bg-red-800 transition flex items-center justify-center gap-2 font-semibold"
+                >
+                  Revoke QR
                 </button>
               </div>
               
             </div>
           </div>
           
-          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <p className="text-xs text-amber-900">
-              <strong>Note:</strong> Extending access generates a new token and invalidates this one.
-              The new token will have a fresh 10-minute timer.
+          <div className="mt-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <p className="text-sm text-amber-900">
+              <strong>💡 Important:</strong> This QR code is long-lived and reusable. 
+              Print it for wallet cards, medical bracelets, or emergency contacts. 
+              Click "Regenerate" to revoke the old QR and create a new one.
             </p>
           </div>
         </div>
@@ -303,29 +406,16 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
       {activeTokens.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Active Emergency Tokens</h3>
-            {activeTokens.length > 0 && (
-              <button
-                onClick={() => revokeToken()}
-                className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition text-sm font-semibold"
-              >
-                Revoke All
-              </button>
-            )}
+            <h3 className="text-lg font-semibold text-gray-900">Active Emergency QR Codes</h3>
           </div>
           
           <div className="space-y-3">
             {activeTokens.map((token) => {
-              const expiresAt = new Date(token.expiresAt);
-              const now = new Date();
-              const isExpired = now > expiresAt;
-              const timeLeft = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
-              
               return (
                 <div
                   key={token.id}
                   className={`border rounded-lg p-4 ${
-                    isExpired || token.revoked || token.used
+                    token.revoked
                       ? 'bg-gray-50 border-gray-200'
                       : 'bg-green-50 border-green-200'
                   }`}
@@ -335,17 +425,18 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
                       <p className="text-sm font-semibold text-gray-900">
                         Created {new Date(token.createdAt).toLocaleString()}
                       </p>
-                      <p className="text-xs text-gray-600">
-                        {isExpired ? (
-                          <span className="text-red-600">Expired</span>
-                        ) : token.revoked ? (
-                          <span className="text-orange-600">Revoked</span>
-                        ) : token.used ? (
-                          <span className="text-blue-600">Used</span>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {token.revoked ? (
+                          <span className="text-orange-600 font-semibold">Revoked</span>
                         ) : (
-                          <span className="text-green-600">
-                            Active • {formatTime(timeLeft)} remaining
-                          </span>
+                          <>
+                            <span className="text-green-600 font-semibold">Active</span>
+                            {' • '}
+                            <span>Accessed {token.accessCount} times</span>
+                            {token.lastAccessedAt && (
+                              <span> • Last: {new Date(token.lastAccessedAt).toLocaleString()}</span>
+                            )}
+                          </>
                         )}
                       </p>
                     </div>
@@ -359,13 +450,15 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
       
       {/* Info Box */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-900 mb-2">How Emergency Access Works</h4>
+        <h4 className="font-semibold text-blue-900 mb-2">How Emergency QR Works</h4>
         <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Tokens are single-use and expire after 10 minutes</li>
-          <li>• Only minimal critical information is exposed (no files or history)</li>
-          <li>• All access is logged and monitored for security</li>
-          <li>• You can revoke access at any time instantly</li>
-          <li>• Share the QR code or link only with trusted emergency contacts</li>
+          <li>✓ QR codes are permanent and reusable (not time-limited)</li>
+          <li>✓ Every scan is logged with timestamp and location</li>
+          <li>✓ You'll be notified when someone scans your QR</li>
+          <li>✓ Your emergency contact receives an automatic notification</li>
+          <li>✓ Only critical medical info is shown (no documents or history)</li>
+          <li>✓ Regenerate anytime to revoke old QR and create a new one</li>
+          <li>✓ Print for wallet cards, medical bracelets, or emergency folders</li>
         </ul>
       </div>
       

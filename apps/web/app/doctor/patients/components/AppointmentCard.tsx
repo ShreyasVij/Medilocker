@@ -15,16 +15,18 @@ export default function AppointmentCard({
   onViewDetails,
 }: AppointmentCardProps) {
   const statusStyles = {
+    approved: "bg-green-50 text-green-700 border-green-200",
     upcoming: "bg-blue-50 text-blue-700 border-blue-200",
     ongoing: "bg-yellow-50 text-yellow-700 border-yellow-200",
     completed: "bg-green-50 text-green-700 border-green-200",
-  };
+  } as const;
 
   const statusLabels = {
+    approved: "Approved",
     upcoming: "Upcoming",
     ongoing: "Ongoing",
     completed: "Completed",
-  };
+  } as const;
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">

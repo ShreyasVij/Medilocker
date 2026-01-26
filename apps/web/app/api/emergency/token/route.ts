@@ -7,6 +7,8 @@ import {
   createEmergencyToken,
   logEmergencyAction,
   getActiveTokensForProfile,
+  regenerateToken,
+  markTokenPrinted,
 } from '@/../../packages/db';
 import type { UserDocument } from '@/../../packages/db/users';
 import type { ProfileDocument } from '@/../../packages/db/profiles';
@@ -76,7 +78,7 @@ export async function POST(req: NextRequest) {
     
     // Get body
     const body = await req.json();
-    const { profileId, ttlMinutes = 10 } = body;
+    const { profileId, regenerate = false, oldToken = null } = body;
     
     if (!profileId) {
       return NextResponse.json(
@@ -112,14 +114,6 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    // Validate TTL
-    if (ttlMinutes < 1 || ttlMinutes > 30) {
-      return NextResponse.json(
-        { error: 'TTL must be between 1 and 30 minutes' },
-        { status: 400 }
-      );
-    }
-    
     // Generate cryptographically secure token (32 bytes = 64 hex chars)
     const token = crypto.randomBytes(32).toString('hex');
     
@@ -129,28 +123,64 @@ export async function POST(req: NextRequest) {
       .update(token)
       .digest('hex');
     
-    // Create token in database
-    const tokenId = await createEmergencyToken(
-      user._id,
-      profileObjectId,
-      tokenHash,
-      ttlMinutes,
-      { createdIp: ip, createdUserAgent: userAgent }
-    );
+    let tokenId: ObjectId;
     
-    // Log action
-    await logEmergencyAction(
-      user._id,
-      profileObjectId,
-      'token_created',
-      ip,
-      userAgent,
-      tokenHash,
-      {
-        tokenId: tokenId.toString(),
-        ttlMinutes,
+    // If regenerating, revoke old token and create new one
+    if (regenerate && oldToken) {
+      const oldTokenHash = crypto
+        .createHash('sha256')
+        .update(oldToken)
+        .digest('hex');
+      
+      const newTokenId = await regenerateToken(oldTokenHash, tokenHash, user._id);
+      
+      if (!newTokenId) {
+        return NextResponse.json(
+          { error: 'Failed to regenerate token' },
+          { status: 400 }
+        );
       }
-    );
+      
+      tokenId = newTokenId;
+      
+      // Log regeneration
+      await logEmergencyAction(
+        user._id,
+        profileObjectId,
+        'token_created',
+        ip,
+        userAgent,
+        tokenHash,
+        {
+          tokenId: tokenId.toString(),
+          regenerated: true,
+          oldTokenHash,
+        }
+      );
+    } else {
+      // Create new permanent token in database
+      tokenId = await createEmergencyToken(
+        user._id,
+        profileObjectId,
+        tokenHash,
+        true, // isPermanent
+        { createdIp: ip, createdUserAgent: userAgent }
+      );
+      
+      // Log action
+      await logEmergencyAction(
+        user._id,
+        profileObjectId,
+        'token_created',
+        ip,
+        userAgent,
+        tokenHash,
+        {
+          tokenId: tokenId.toString(),
+          isPermanent: true,
+        }
+      );
+    }
     
     // Generate QR code
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
@@ -159,11 +189,8 @@ export async function POST(req: NextRequest) {
     const qrCode = await QRCode.toDataURL(emergencyUrl, {
       errorCorrectionLevel: 'H',
       margin: 2,
-      width: 300,
+      width: 400,
     });
-    
-    // Calculate expiry time
-    const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
     
     return NextResponse.json({
       success: true,
@@ -171,9 +198,9 @@ export async function POST(req: NextRequest) {
       tokenId: tokenId.toString(),
       qrCode,
       url: emergencyUrl,
-      expiresAt: expiresAt.toISOString(),
-      ttlMinutes,
-      warning: 'This token is single-use and will expire automatically. Share only with trusted emergency contacts.',
+      isPermanent: true,
+      regenerated: regenerate,
+      warning: 'This QR code is long-lived and reusable. You can print it for wallet cards or bracelets. Regenerate to revoke the old QR.',
     });
     
   } catch (error) {

@@ -39,6 +39,7 @@
     "tailwind-merge": "^2.5.2"
   },
   "devDependencies": {
+    "@types/google.maps": "^3.58.1",
     "@types/node": "25.0.3",
     "@types/react": "19.2.7",
     "@types/react-dom": "18.3.0",

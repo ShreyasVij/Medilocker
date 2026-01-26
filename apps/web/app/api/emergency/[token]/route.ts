@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import {
   findTokenByHash,
-  markTokenAsUsed,
+  logTokenAccess,
   logEmergencyAction,
   detectSuspiciousActivity,
 } from '@/../../packages/db';
@@ -45,11 +45,23 @@ export async function GET(
     const { token } = await params;
     const { ip, userAgent } = getClientInfo(req);
     
+    // Get location from query params (sent from client)
+    const url = new URL(req.url);
+    const latitude = url.searchParams.get('lat');
+    const longitude = url.searchParams.get('lon');
+    const approximate = url.searchParams.get('loc');
+    
+    const location = {
+      latitude: latitude ? parseFloat(latitude) : undefined,
+      longitude: longitude ? parseFloat(longitude) : undefined,
+      approximate: approximate || undefined,
+    };
+    
     // Rate limiting per IP
-    if (!checkAccessRateLimit(ip, 10, 60000)) {
+    if (!checkAccessRateLimit(ip, 20, 60000)) {
       return NextResponse.json(
         { 
-          error: 'Rate limit exceeded',
+          error: 'Rate limit exceeded. Too many QR scans from your location.',
           locked: true,
         },
         { status: 429 }
@@ -74,20 +86,9 @@ export async function GET(
     const tokenDoc = await findTokenByHash(tokenHash);
     
     if (!tokenDoc) {
-      // Log invalid token attempt
-      await logEmergencyAction(
-        tokenDoc?.userId || new (require('mongodb').ObjectId)(),
-        tokenDoc?.profileId || new (require('mongodb').ObjectId)(),
-        'token_invalid',
-        ip,
-        userAgent,
-        tokenHash,
-        { reason: 'Token not found' }
-      );
-      
       return NextResponse.json(
         { 
-          error: 'Invalid or expired token',
+          error: 'Invalid QR code',
           locked: true,
         },
         { status: 404 }
@@ -95,7 +96,7 @@ export async function GET(
     }
     
     // Check suspicious activity
-    const isSuspicious = await detectSuspiciousActivity(ip, 60, 10);
+    const isSuspicious = await detectSuspiciousActivity(ip, 60, 15);
     if (isSuspicious) {
       await logEmergencyAction(
         tokenDoc.userId,
@@ -130,7 +131,7 @@ export async function GET(
       
       return NextResponse.json(
         { 
-          error: 'This emergency access has been revoked',
+          error: 'This emergency QR has been revoked by the owner',
           locked: true,
           revoked: true,
         },
@@ -138,78 +139,8 @@ export async function GET(
       );
     }
     
-    // Check if expired
-    if (new Date() > tokenDoc.expiresAt) {
-      await logEmergencyAction(
-        tokenDoc.userId,
-        tokenDoc.profileId,
-        'token_expired',
-        ip,
-        userAgent,
-        tokenHash
-      );
-      
-      return NextResponse.json(
-        { 
-          error: 'This emergency access has expired',
-          locked: true,
-          expired: true,
-        },
-        { status: 410 }
-      );
-    }
-    
-    // Check if already used
-    if (tokenDoc.used) {
-      await logEmergencyAction(
-        tokenDoc.userId,
-        tokenDoc.profileId,
-        'token_reuse_attempt',
-        ip,
-        userAgent,
-        tokenHash,
-        { 
-          previousUse: {
-            usedAt: tokenDoc.usedAt,
-            usedIp: tokenDoc.usedIp,
-            usedUserAgent: tokenDoc.usedUserAgent,
-          },
-        }
-      );
-      
-      return NextResponse.json(
-        { 
-          error: 'This emergency token has already been used and is now invalid',
-          locked: true,
-          used: true,
-        },
-        { status: 403 }
-      );
-    }
-    
-    // Mark token as used IMMEDIATELY (atomic operation)
-    const marked = await markTokenAsUsed(tokenHash, ip, userAgent);
-    
-    if (!marked) {
-      // Race condition or concurrent access
-      await logEmergencyAction(
-        tokenDoc.userId,
-        tokenDoc.profileId,
-        'token_reuse_attempt',
-        ip,
-        userAgent,
-        tokenHash,
-        { reason: 'Concurrent access attempt' }
-      );
-      
-      return NextResponse.json(
-        { 
-          error: 'Token already in use',
-          locked: true,
-        },
-        { status: 409 }
-      );
-    }
+    // Log QR access
+    await logTokenAccess(tokenHash, ip, userAgent, location);
     
     // Fetch user with emergency data (profileId is actually userId in this system)
     const db = await getDbClient();
@@ -240,11 +171,13 @@ export async function GET(
       'token_accessed',
       ip,
       userAgent,
-      tokenHash
+      tokenHash,
+      { location }
     );
     
     // Calculate age from DOB if available
     let age: number | undefined;
+    let dob: string | undefined;
     if (user.profile?.dob) {
       const today = new Date();
       const birthDate = new Date(user.profile.dob);
@@ -253,6 +186,7 @@ export async function GET(
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
         age--;
       }
+      dob = birthDate.toLocaleDateString();
     }
     
     // Extract emergency contact info
@@ -262,26 +196,39 @@ export async function GET(
       phone: user.profile.emergency.phone || '',
     }] : [];
     
+    // Parse allergies and conditions (assuming they're stored as comma-separated strings)
+    const allergies = user.profile?.medical?.allergies 
+      ? user.profile.medical.allergies.split(',').map(a => a.trim()).filter(Boolean)
+      : [];
+    
+    const chronicConditions = user.profile?.medical?.conditions 
+      ? user.profile.medical.conditions.split(',').map(c => c.trim()).filter(Boolean)
+      : [];
+    
+    const currentMedications = user.profile?.medical?.medications 
+      ? user.profile.medical.medications.split(',').map(m => m.trim()).filter(Boolean)
+      : [];
+    
     // Return ONLY emergency-scope data (minimal critical information)
     const emergencyData = {
       success: true,
-      tokenUsed: true,
-      expiresAt: tokenDoc.expiresAt.toISOString(),
+      accessTimestamp: new Date().toISOString(),
       profile: {
         displayName: user.name || 'Unknown',
         age,
+        dob,
         bloodGroup: user.profile?.medical?.bloodGroup || 'Unknown',
-        allergies: user.profile?.medical?.allergies ? [user.profile.medical.allergies] : [],
-        chronicConditions: user.profile?.medical?.conditions ? [user.profile.medical.conditions] : [],
+        allergies,
+        chronicConditions,
+        currentMedications,
         emergencyNotes: '',
         emergencyContacts,
+        // Optional masked insurance ID
+        insuranceId: user.profile?.medical?.['insuranceId'] 
+          ? `****${String(user.profile.medical['insuranceId']).slice(-4)}`
+          : undefined,
       },
-      warnings: [
-        'This is emergency-only access with limited information',
-        'No medical history or documents are included',
-        'This token can only be used once',
-        'All access is logged and monitored',
-      ],
+      token, // Send back token for notification purposes
     };
     
     return NextResponse.json(emergencyData);

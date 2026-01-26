@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Calendar, Clock, MapPin, Award } from "lucide-react";
+import { Search, Calendar, Clock, MapPin, Award, Navigation } from "lucide-react";
+import HospitalMap from "@/components/HospitalMap";
+import { Hospital } from "@/services/hospitalService";
 
 interface DoctorInfo {
   id: string;
@@ -27,6 +29,10 @@ export default function BookAppointmentPage() {
   const [reason, setReason] = useState("");
   const [booking, setBooking] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  
+  // Hospital map state
+  const [selectedHospital, setSelectedHospital] = useState<(Hospital & { distance?: number }) | null>(null);
+  const [showMap, setShowMap] = useState(false);
 
   const handleSearchDoctor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,6 +272,70 @@ export default function BookAppointmentPage() {
                   ℹ️ Your medical records will be automatically shared with the doctor upon booking.
                 </p>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Hospital & Clinic Finder Section */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Navigation className="h-5 w-5 text-blue-600" />
+                Find Nearby Hospitals & Clinics
+              </h2>
+              <p className="text-gray-600 text-sm mt-1">
+                Locate healthcare facilities near you in Chandigarh
+              </p>
+            </div>
+            <button
+              onClick={() => setShowMap(!showMap)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+            >
+              {showMap ? "Hide Map" : "Show Map"}
+            </button>
+          </div>
+
+          {selectedHospital && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="font-semibold text-gray-900">{selectedHospital.name}</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                <MapPin className="inline h-4 w-4 mr-1" />
+                {selectedHospital.location}
+              </p>
+              <div className="flex gap-4 mt-2 text-sm">
+                <span className="text-gray-600">
+                  Type: {selectedHospital.type === 'hospital' ? '🏥 Hospital' : '⚕️ Clinic'}
+                </span>
+                {selectedHospital.distance && (
+                  <span className="text-blue-600 font-medium">
+                    {selectedHospital.distance.toFixed(2)} km away
+                  </span>
+                )}
+              </div>
+              {selectedHospital.specialties && (
+                <p className="text-sm text-gray-500 mt-2">
+                  Specialties: {selectedHospital.specialties.join(', ')}
+                </p>
+              )}
+            </div>
+          )}
+
+          {showMap && (
+            <div className="h-[500px] rounded-lg overflow-hidden border border-gray-200">
+              <HospitalMap
+                showNearbyOnly={true}
+                radiusKm={10}
+                onHospitalSelect={setSelectedHospital}
+              />
+            </div>
+          )}
+
+          {!showMap && (
+            <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+              <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600">Click "Show Map" to find hospitals and clinics near you</p>
+              <p className="text-sm text-gray-500 mt-1">Uses your GPS location to show nearby facilities</p>
             </div>
           )}
         </div>

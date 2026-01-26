@@ -32,6 +32,15 @@ export default function ProfilePage() {
     role:"User"
   });
 
+  const [userMetadata, setUserMetadata] = useState({
+    userId: "",
+    joinedDate: "",
+    status: "Active",
+    verified: false
+  });
+
+  const [bannerColor, setBannerColor] = useState("bg-gradient-to-r from-blue-500 to-purple-600");
+
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmPreviewUrl, setConfirmPreviewUrl] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -47,6 +56,48 @@ export default function ProfilePage() {
       }));
     }
   }, [session]);
+
+  // Extract dominant color from image
+  const extractDominantColor = (imageUrl: string) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = imageUrl;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      let r = 0, g = 0, b = 0;
+      
+      for (let i = 0; i < data.length; i += 4) {
+        r += data[i];
+        g += data[i + 1];
+        b += data[i + 2];
+      }
+      
+      const pixelCount = data.length / 4;
+      r = Math.floor(r / pixelCount);
+      g = Math.floor(g / pixelCount);
+      b = Math.floor(b / pixelCount);
+      
+      // Create a lighter and darker version for gradient
+      const lighterR = Math.min(255, r + 40);
+      const lighterG = Math.min(255, g + 40);
+      const lighterB = Math.min(255, b + 40);
+      
+      const darkerR = Math.max(0, r - 40);
+      const darkerG = Math.max(0, g - 40);
+      const darkerB = Math.max(0, b - 40);
+      
+      setBannerColor(`linear-gradient(to right, rgb(${lighterR}, ${lighterG}, ${lighterB}), rgb(${darkerR}, ${darkerG}, ${darkerB}))`);
+    };
+  };
 
   // Map backend enum to UI label
   function genderEnumToLabel(g?: string | null): string {
@@ -95,25 +146,46 @@ export default function ProfilePage() {
         if (!res.ok) return;
         const data = await res.json();
         const p = data?.profile;
-        if (!p) return;
+        const user = data?.user;
+        
+        if (p) {
+          setForm((prev) => ({
+            ...prev,
+            phone: p.phone ?? "",
+            dob: p.dob ? new Date(p.dob).toISOString().slice(0, 10) : "",
+            gender: genderEnumToLabel(p.gender),
+            profileImageName: p.profileImageName ?? "",
+            profileImagePreviewUrl: p.profileImageUrl ?? "",
+            bloodGroup: p.medical?.bloodGroup ?? "",
+            allergies: p.medical?.allergies ?? "",
+            conditions: p.medical?.conditions ?? "",
+            medications: p.medical?.medications ?? "",
+            emergencyName: p.emergency?.name ?? "",
+            emergencyPhone: p.emergency?.phone ?? "",
+            relationship: p.emergency?.relationship ?? "",
+            city: p.location?.city ?? "",
+            state: p.location?.state ?? "",
+            country: p.location?.country ?? prev.country,
+          }));
+          
+          // Extract color from existing profile image
+          if (p.profileImageUrl) {
+            extractDominantColor(p.profileImageUrl);
+          }
+        }
 
-        setForm((prev) => ({
-          ...prev,
-          phone: p.phone ?? "",
-          dob: p.dob ? new Date(p.dob).toISOString().slice(0, 10) : "",
-          gender: genderEnumToLabel(p.gender),
-          profileImageName: p.profileImageName ?? "",
-          bloodGroup: p.medical?.bloodGroup ?? "",
-          allergies: p.medical?.allergies ?? "",
-          conditions: p.medical?.conditions ?? "",
-          medications: p.medical?.medications ?? "",
-          emergencyName: p.emergency?.name ?? "",
-          emergencyPhone: p.emergency?.phone ?? "",
-          relationship: p.emergency?.relationship ?? "",
-          city: p.location?.city ?? "",
-          state: p.location?.state ?? "",
-          country: p.location?.country ?? prev.country,
-        }));
+        if (user) {
+          setUserMetadata({
+            userId: user._id?.toString().slice(-8) || "",
+            joinedDate: user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { 
+              day: 'numeric', 
+              month: 'long', 
+              year: 'numeric' 
+            }) : "",
+            status: user.status === "active" ? "Active" : user.status || "Active",
+            verified: !!user.googleSub
+          });
+        }
       } catch {
         // noop: leave form as-is if fetch fails
       }
@@ -141,6 +213,8 @@ export default function ProfilePage() {
           const objUrl = URL.createObjectURL(file);
           setConfirmPreviewUrl(objUrl);
           setConfirmOpen(true);
+          // Extract color from new image
+          extractDominantColor(objUrl);
         } catch {}
       } else {
         // If no file selected, cleanup any stale preview or modal
@@ -251,114 +325,235 @@ export default function ProfilePage() {
 
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pt-6">
-      <h1 className="mb-4 text-xl font-semibold text-gray-800">
-        Profile Settings
-      </h1>
-
-      {!session ? (
-        <div className="rounded-md border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-800">
-          You're not signed in.{" "}
-          <Link href="/auth" className="font-medium underline">
-            Go to login
-          </Link>
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Profile</h1>
+          <p className="text-gray-600 mt-1">Manage your profile, verification, and account settings.</p>
         </div>
-      ) : (
-        <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
-          <div className="space-y-6 p-4">
 
-            {/* BASIC INFO */}
-            <Section title="Basic Information">
-              <Input label="Name" name="name" value={form.name} onChange={handleChange} />
-              <Input label="Email" name="email" value={form.email} onChange={handleChange} />
-              <Input label="Phone Number" name="phone" value={form.phone} onChange={handleChange} />
-              <Input label="Date of Birth" type="date" name="dob" value={form.dob} onChange={handleChange} />
-              <Input
-                label="Add Profile Picture"
-                type="file"
-                name="profileImage"
-                accept="image/*"
-                onChange={handleChange}
-              />
-              {/* Remove static filename label; show preview only after successful upload */}
-              {form.profileImagePreviewUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={form.profileImagePreviewUrl} alt="Profile" className="h-10 w-10 rounded-full object-cover border" />
-              ) : null}
-              <Select
-                label="Gender"
-                name="gender"
-                value={form.gender}
-                onChange={handleChange}
-                options={["Male", "Female", "Other", "Prefer not to say"]}
-              />
-            </Section>
+        {!session ? (
+          <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-800">
+            You're not signed in.{" "}
+            <Link href="/auth" className="font-medium underline">
+              Go to login
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* LEFT COLUMN - USER SUMMARY CARD */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                {/* Banner */}
+                <div 
+                  className="h-24" 
+                  style={{ background: bannerColor.startsWith('linear-gradient') ? bannerColor : '' }}
+                  {...(!bannerColor.startsWith('linear-gradient') ? { className: `h-24 ${bannerColor}` } : {})}
+                ></div>
+                
+                {/* User Info */}
+                <div className="px-6 pb-6">
+                  {/* Avatar */}
+                  <div className="flex justify-center -mt-12 mb-4">
+                    <div className="relative">
+                      {form.profileImagePreviewUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img 
+                          src={form.profileImagePreviewUrl} 
+                          alt="Profile" 
+                          className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg" 
+                        />
+                      ) : (
+                        <div className="h-24 w-24 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 border-4 border-white shadow-lg flex items-center justify-center">
+                          <span className="text-4xl font-semibold text-white">
+                            {form.name ? form.name.charAt(0).toUpperCase() : "U"}
+                          </span>
+                        </div>
+                      )}
+                      <label 
+                        htmlFor="profileImageUpload" 
+                        className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-md cursor-pointer hover:bg-gray-50 transition-colors"
+                        title="Edit Profile"
+                      >
+                        <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        <input
+                          id="profileImageUpload"
+                          type="file"
+                          name="profileImage"
+                          accept="image/*"
+                          onChange={handleChange}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
 
-            {/* MEDICAL */}
-            <Section title="Medical Information">
-              <Select
-                label="Blood Group"
-                name="bloodGroup"
-                value={form.bloodGroup}
-                onChange={handleChange}
-                options={["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]}
-              />
-              <Input label="Allergies" name="allergies" value={form.allergies} onChange={handleChange} />
-              <Input label="Chronic Conditions" name="conditions" value={form.conditions} onChange={handleChange} />
-              <Input label="Current Medications" name="medications" value={form.medications} onChange={handleChange} />
-            </Section>
+                  {/* Name & Email */}
+                  <div className="text-center mb-4">
+                    <h2 className="text-xl font-bold text-gray-900">{form.name || "User"}</h2>
+                    <p className="text-sm text-gray-600 mt-1">{form.email}</p>
+                  </div>
 
-            {/* EMERGENCY */}
-            <Section title="Emergency Contact">
-              <Input label="Contact Name" name="emergencyName" value={form.emergencyName} onChange={handleChange} />
-              <Input label="Contact Phone" name="emergencyPhone" value={form.emergencyPhone} onChange={handleChange} />
-              <Input label="Relationship" name="relationship" value={form.relationship} onChange={handleChange} />
-            </Section>
+                  {/* Badges */}
+                  <div className="flex gap-2 justify-center mb-6">
+                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                      {(session.user as any)?.roles?.[0]?.charAt(0).toUpperCase() + (session.user as any)?.roles?.[0]?.slice(1) || "User"}
+                    </span>
+                  </div>
 
-            {/* LOCATION */}
-            <Section title="Location">
-              <Input label="City" name="city" value={form.city} onChange={handleChange} />
-              <Input label="State" name="state" value={form.state} onChange={handleChange} />
-              <Input label="Country" name="country" value={form.country} onChange={handleChange} />
-            </Section>
+                  {/* Divider */}
+                  <div className="border-t border-gray-200 mb-4"></div>
 
-            {/* ACCOUNT */}
-            <Section title="Account">
-              <Input
-                label="Primary Role"
-                value={(session.user as any)?.roles?.[0] || "patient"}
-                readOnly
-              />
-            </Section>
+                  {/* Metadata */}
+                  <div className="space-y-3">
+                    <div className="flex items-center text-sm">
+                      <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                      </svg>
+                      <span className="text-gray-500 flex-1">User ID</span>
+                      <span className="font-medium text-gray-700">
+                        {userMetadata.userId ? `0e${userMetadata.userId.slice(0, 6)}...` : "..."}
+                      </span>
+                    </div>
 
-            <button
-              onClick={handleSave}
-              className="w-full rounded-md bg-blue-600 py-2 text-white font-medium hover:bg-blue-700"
-            >
-              Save Profile
-            </button>
+                    <div className="flex items-center text-sm">
+                      <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-gray-500 flex-1">Joined</span>
+                      <span className="font-medium text-gray-700">{userMetadata.joinedDate || "..."}</span>
+                    </div>
 
-            {/* Delete Profile Section */}
-            <div className="mt-8 pt-8 border-t border-red-200">
-              <h2 className="text-sm font-semibold text-red-700 mb-2">Danger Zone</h2>
-              <p className="text-sm text-gray-600 mb-4">
-                Permanently delete your account and all associated data. This action cannot be undone.
-              </p>
-              <button
-                onClick={() => setDeleteConfirmOpen(true)}
-                className="w-full rounded-md bg-red-600 py-2 text-white font-medium hover:bg-red-700 transition-colors"
-              >
-                Delete Profile Permanently
-              </button>
+                    <div className="flex items-center text-sm">
+                      <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-gray-500 flex-1">Status</span>
+                      <span className="inline-flex items-center">
+                        <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                        <span className="font-medium text-green-700">{userMetadata.status}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <p className="text-sm text-gray-500">
-              Additional settings will appear here.
-            </p>
+            {/* RIGHT COLUMN - INFORMATION CARDS */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Personal Information Card */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center mb-6">
+                  <svg className="w-5 h-5 text-gray-700 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-6">Update your personal details and contact information.</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <ModernInput label="Full Name" name="name" value={form.name} onChange={handleChange} />
+                  <ModernInput label="Email Address" name="email" value={form.email} onChange={handleChange} />
+                  <ModernInput label="Phone Number" name="phone" value={form.phone} onChange={handleChange} />
+                  <ModernInput label="Date of Birth" type="date" name="dob" value={form.dob} onChange={handleChange} />
+                  <ModernSelect
+                    label="Gender"
+                    name="gender"
+                    value={form.gender}
+                    onChange={handleChange}
+                    options={["Male", "Female", "Other", "Prefer not to say"]}
+                  />
+                  <ModernSelect
+                    label="Blood Group"
+                    name="bloodGroup"
+                    value={form.bloodGroup}
+                    onChange={handleChange}
+                    options={["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]}
+                  />
+                </div>
+              </div>
 
+              {/* Medical Information Card */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center mb-6">
+                  <svg className="w-5 h-5 text-gray-700 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-gray-900">Medical Information</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-6">Manage your health information and medical history.</p>
+                
+                <div className="space-y-6">
+                  <ModernTextarea label="Allergies" name="allergies" value={form.allergies} onChange={handleChange} placeholder="List any allergies..." />
+                  <ModernTextarea label="Chronic Conditions" name="conditions" value={form.conditions} onChange={handleChange} placeholder="List any chronic conditions..." />
+                  <ModernTextarea label="Current Medications" name="medications" value={form.medications} onChange={handleChange} placeholder="List current medications..." />
+                </div>
+              </div>
+
+              {/* Emergency Contact Card */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center mb-6">
+                  <svg className="w-5 h-5 text-gray-700 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-gray-900">Emergency Contact</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-6">Provide emergency contact details for urgent situations.</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <ModernInput label="Contact Name" name="emergencyName" value={form.emergencyName} onChange={handleChange} />
+                  <ModernInput label="Contact Phone" name="emergencyPhone" value={form.emergencyPhone} onChange={handleChange} />
+                  <ModernInput label="Relationship" name="relationship" value={form.relationship} onChange={handleChange} className="md:col-span-2" />
+                </div>
+              </div>
+
+              {/* Location Card */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center mb-6">
+                  <svg className="w-5 h-5 text-gray-700 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-gray-900">Location</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-6">Update your location information.</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <ModernInput label="City" name="city" value={form.city} onChange={handleChange} />
+                  <ModernInput label="State" name="state" value={form.state} onChange={handleChange} />
+                  <ModernInput label="Country" name="country" value={form.country} onChange={handleChange} />
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <button
+                onClick={handleSave}
+                className="w-full bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                Save Profile
+              </button>
+
+              {/* Delete Profile Section */}
+              <div className="bg-red-50 rounded-xl border border-red-200 p-6">
+                <h3 className="text-sm font-semibold text-red-700 mb-2">Danger Zone</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Permanently delete your account and all associated data. This action cannot be undone.
+                </p>
+                <button
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="w-full bg-red-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Delete Profile Permanently
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+      
       {/* Confirm modal for profile image upload */}
       <ConfirmModal
         open={confirmOpen}
@@ -424,43 +619,58 @@ export default function ProfilePage() {
   );
 }
 
-/* ================= REUSABLE COMPONENTS ================= */
+/* ================= MODERN STYLED COMPONENTS ================= */
 
-const Section = ({ title, children }: any) => (
-  <div className="space-y-4">
-    <h2 className="text-sm font-semibold text-gray-700">{title}</h2>
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      {children}
+const ModernInput = ({ label, icon, className = "", ...props }: any) => (
+  <div className={`flex flex-col gap-2 ${className}`}>
+    <label className="text-sm font-medium text-gray-700">{label}</label>
+    <div className="relative">
+      {icon && (
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+          {icon}
+        </div>
+      )}
+      <input
+        {...props}
+        className={`w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
+                   focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20
+                   disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
+                   transition-colors ${icon ? "pl-11" : ""}`}
+      />
     </div>
   </div>
 );
 
-const Input = ({ label, ...props }: any) => (
-  <div className="flex flex-col gap-1">
-    <label className="text-sm font-medium text-gray-700">{label}</label>
-    <input
-      {...props}
-      className="rounded-md border border-gray-300 px-3 py-2 text-sm
-                 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500
-                 disabled:bg-gray-100 disabled:text-gray-600"
-    />
-  </div>
-);
-
-const Select = ({ label, options, ...props }: any) => (
-  <div className="flex flex-col gap-1">
+const ModernSelect = ({ label, options, className = "", ...props }: any) => (
+  <div className={`flex flex-col gap-2 ${className}`}>
     <label className="text-sm font-medium text-gray-700">{label}</label>
     <select
       {...props}
-      className="rounded-md border border-gray-300 px-3 py-2 text-sm
-                 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
+                 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20
+                 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
+                 transition-colors bg-white"
     >
-      <option value="">Select</option>
+      <option value="" disabled>Select</option>
       {options.map((opt: string) => (
         <option key={opt} value={opt}>
           {opt}
         </option>
       ))}
     </select>
+  </div>
+);
+
+const ModernTextarea = ({ label, className = "", ...props }: any) => (
+  <div className={`flex flex-col gap-2 ${className}`}>
+    <label className="text-sm font-medium text-gray-700">{label}</label>
+    <textarea
+      {...props}
+      rows={3}
+      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
+                 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20
+                 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
+                 transition-colors resize-none"
+    />
   </div>
 );

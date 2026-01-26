@@ -43,26 +43,36 @@ async def generate_document_title(
         }
     
     # Build prompt for AI
-    prompt = f"""You are a medical document title generator. Generate a concise, descriptive title for this medical document.
+    prompt = f"""You are a medical document title generator. Generate a specific, descriptive title for this medical document.
 
 Document Type: {doc_type}
 Document Text (first 1000 chars):
 {text_sample}
 
 Requirements:
-1. Title should be 3-8 words maximum
-2. Include the main test/procedure name if identifiable
-3. Include date if clearly visible (format: Mon YYYY)
-4. Include key findings if critical (e.g., "Abnormal", "Normal", "Follow-up Required")
-5. Be specific and medically accurate
-6. Avoid generic terms like "Medical Report" or "Test Results"
+1. Title should be 2-5 words maximum
+2. Be SPECIFIC - identify the exact test/report type (e.g., "Blood Report", "Liver Report", "Prescription", "X-Ray Report", not generic "Lab Report")
+3. Include specific test names if identifiable (e.g., "Complete Blood Count", "Liver Function Test", "Chest X-Ray")
+4. Include medication name for prescriptions (e.g., "Metformin Prescription", "Aspirin Prescription")
+5. Avoid generic terms like "Medical Report", "Test Results", "Document"
+6. Be medically accurate and specific
 
-Examples of good titles:
-- "Complete Blood Count - Jan 2026"
-- "Liver Function Test - Abnormal"
-- "Chest X-Ray - Clear"
-- "Diabetes Medication - Metformin 500mg"
-- "Hospital Discharge Summary - Pneumonia"
+Examples of GOOD titles (be specific like these):
+- "Blood Report"
+- "Liver Report"
+- "Kidney Report"
+- "Diabetes Report"
+- "Prescription"
+- "Metformin Prescription"
+- "Chest X-Ray"
+- "ECG Report"
+- "Thyroid Report"
+- "Lipid Panel"
+
+Examples of BAD titles (avoid these):
+- "Lab Report" (too generic)
+- "Medical Document" (too vague)
+- "Test Results" (too generic)
 
 Return ONLY a JSON object with this structure:
 {{

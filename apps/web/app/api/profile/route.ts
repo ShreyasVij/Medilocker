@@ -30,7 +30,20 @@ export async function GET() {
     const users = await getCollection<UserDocument>("users");
     const user = await users.findOne({ email: session.user.email });
     const profile = user?.profile || null;
-    return NextResponse.json({ profile });
+    
+    // Return both profile and user metadata
+    return NextResponse.json({ 
+      profile,
+      user: user ? {
+        _id: user._id,
+        email: user.email,
+        name: user.name,
+        roles: user.roles,
+        status: user.status,
+        createdAt: user.createdAt,
+        googleSub: user.googleSub
+      } : null
+    });
   } catch (err) {
     console.error("PROFILE_GET_ERROR", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

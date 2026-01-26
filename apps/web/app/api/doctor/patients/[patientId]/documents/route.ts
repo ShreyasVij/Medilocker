@@ -81,44 +81,12 @@ export async function GET(
 
     console.log(`📄 Doctor ${doctor._id} fetching documents for patient ${patientId}: Found ${patientDocuments.length} documents`);
 
-    // Get OCR data if available
-    const ocrOutputs = await getCollection("ocrOutputs");
-    const documentIds = patientDocuments.map(doc => doc.id);
-    const ocrData = await ocrOutputs
-      .find({ documentId: { $in: documentIds } })
-      .toArray();
-
-    // Create a map for OCR data
-    const ocrMap = new Map();
-    ocrData.forEach((ocr: any) => {
-      ocrMap.set(ocr.documentId, ocr);
-    });
-
     // Helper function to generate document title
-    const generateDocumentTitle = (doc: DocumentDocument, ocrData: any) => {
-      // 1. Check metadata for existing title
+    const generateDocumentTitle = (doc: DocumentDocument) => {
+      // Prefer AI-generated/metadata title when present
       if (doc.metadata?.title) return doc.metadata.title;
-      
-      // 2. Use tags if available
-      if (doc.tags && doc.tags.length > 0) {
-        const primaryTag = doc.tags[0];
-        return primaryTag.charAt(0).toUpperCase() + primaryTag.slice(1);
-      }
-      
-      // 3. Try to extract from OCR text
-      if (ocrData?.parsedText) {
-        const lines = ocrData.parsedText.split('\n').filter((line: string) => line.trim());
-        if (lines.length > 0) {
-          // Get first meaningful line (skip very short lines)
-          const firstLine = lines.find((line: string) => line.trim().length > 5);
-          if (firstLine) {
-            const cleaned = firstLine.trim().substring(0, 50);
-            return cleaned.length < firstLine.trim().length ? cleaned + '...' : cleaned;
-          }
-        }
-      }
-      
-      // 4. Fallback to doc type + date
+
+      // Minimal fallback: doc type + created month/year
       const docTypeName = doc.docType.charAt(0).toUpperCase() + doc.docType.slice(1);
       const date = new Date(doc.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
       return `${docTypeName} - ${date}`;
@@ -126,11 +94,10 @@ export async function GET(
 
     // Format response
     const formattedDocuments = patientDocuments.map(doc => {
-      const ocr = ocrMap.get(doc.id);
       return {
         id: doc.id,
         docType: doc.docType,
-        title: generateDocumentTitle(doc, ocr),
+        title: generateDocumentTitle(doc),
         storageKey: doc.storageKey,
         versionId: doc.versionId,
         tags: doc.tags || [],
@@ -138,8 +105,7 @@ export async function GET(
         updatedAt: doc.updatedAt,
         ocrAvailable: doc.ocrAvailable || false,
         processingStatus: doc.processingStatus,
-        metadata: doc.metadata,
-        ocrData: ocr || null
+        metadata: doc.metadata
       };
     });
 

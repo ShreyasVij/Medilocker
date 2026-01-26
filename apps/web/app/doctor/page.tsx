@@ -52,8 +52,15 @@ export default function DoctorPage() {
   console.log('All appointments:', appointments.map(a => ({ date: a.date, time: a.appointmentTime, name: a.patientName })));
 
   // Appointments for the selected date only (for schedule view)
+  const scheduleEligibleStatuses = new Set([
+    "approved",
+    "upcoming",
+    "ongoing",
+    "completed",
+  ]);
+
   const todayAppointments = appointments.filter(
-    (apt) => apt.date === selectedDateString
+    (apt) => apt.date === selectedDateString && scheduleEligibleStatuses.has(apt.status)
   );
 
   console.log('Filtered appointments for selected date:', todayAppointments.length);

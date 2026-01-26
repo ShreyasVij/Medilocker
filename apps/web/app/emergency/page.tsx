@@ -1,31 +1,37 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
 export default function EmergencyAccessPage() {
+  const router = useRouter();
+  
+  useEffect(() => {
+    // Redirect to emergency settings page
+    router.push('/emergency/settings');
+  }, [router]);
+  
   return (
-    <div className="container" style={{ maxWidth: 720 }}>
-      <div className="my-4 p-3 border rounded" style={{ background: '#fff' }}>
-        <h1 className="h5" style={{ color: '#b91c1c' }}>Emergency Access</h1>
-        <p className="text-muted small mb-3">This limited view is for emergency responders. Data is read-only and time-limited.</p>
-
-        <div className="mb-3 p-2 border rounded bg-light">
-          <div className="d-flex justify-content-between">
-            <span className="small">Access window</span>
-            <strong className="small">00:09:59</strong>
-          </div>
-        </div>
-
-        <h2 className="h6">Shared Data</h2>
-        <ul className="text-muted small">
-          <li>Name, age</li>
-          <li>Primary conditions</li>
-          <li>Allergies</li>
-          <li>Current medications</li>
-          <li>Emergency contacts</li>
-        </ul>
-
-        <div className="d-flex gap-2 mt-3">
-          <button className="btn btn-sm btn-danger">Revoke now</button>
-          <button className="btn btn-sm btn-outline-secondary">Extend 10 min</button>
-        </div>
+    <div className="container" style={{ maxWidth: 720, padding: '40px 20px' }}>
+      <div className="my-4 p-6 border rounded text-center" style={{ background: '#fff' }}>
+        <div style={{ 
+          width: '48px', 
+          height: '48px', 
+          border: '3px solid #ddd', 
+          borderTopColor: '#dc2626',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+          margin: '0 auto 20px'
+        }} />
+        <h1 className="h5" style={{ color: '#111', marginBottom: '12px' }}>
+          Redirecting to Emergency Settings...
+        </h1>
+        <p className="text-muted small">
+          Please wait while we take you to the emergency QR code management page.
+        </p>
       </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
+
