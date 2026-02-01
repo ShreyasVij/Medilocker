@@ -5,6 +5,7 @@ import { getCollection } from "@/lib/db";
 import type { DoctorDocument } from "@db/doctors";
 import type { UserDocument } from "@db/users";
 import type { DocumentDocument } from "@db/documents";
+import type { ProfileDocument } from "@db/profiles";
 import { ObjectId } from "mongodb";
 
 // GET - Fetch all documents for a specific patient
