@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { getCollection } from "@/lib/db";
 import type { AppointmentDocument, DoctorDocument, DoctorFileDocument } from "@db/doctors";
+import type { ProfileDocument } from "@db/profiles";
 import type { UserDocument } from "@db/users";
 import type { DocumentDocument } from "@db/documents";
 import { ObjectId } from "mongodb";
@@ -77,8 +78,8 @@ export async function POST(req: Request) {
     }
 
     // Get patient profile for additional info
-    const profiles = await getCollection("profiles");
-    const patientProfile = await profiles.findOne({ userId: patient._id });
+    const profiles = await getCollection<ProfileDocument>("profiles");
+    const patientProfile = await profiles.findOne({ userId: patient._id.toString() });
 
     // Check for double booking using unique index
     // MongoDB will throw error if appointment already exists for same doctor + date + time
@@ -87,8 +88,8 @@ export async function POST(req: Request) {
     try {
       // Calculate age from profile if available
       let patientAge: number | undefined;
-      if (patientProfile?.dob) {
-        const birthDate = new Date(patientProfile.dob);
+      if (patientProfile?.dateOfBirth) {
+        const birthDate = new Date(patientProfile.dateOfBirth);
         const today = new Date();
         patientAge = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -97,9 +98,9 @@ export async function POST(req: Request) {
         }
       }
 
-      // Get gender from profile - try both user.profile and profiles collection
+      // Get gender from user's profile if available
       let patientGender: "Male" | "Female" | "Other" | undefined;
-      const genderSource = patientProfile?.gender || (patient as any).profile?.gender;
+      const genderSource = (patient as any).profile?.gender;
       if (genderSource) {
         const gender = genderSource.toLowerCase();
         if (gender === "male") patientGender = "Male";
