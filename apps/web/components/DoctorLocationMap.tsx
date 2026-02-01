@@ -4,6 +4,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { getUserGPSLocation } from '@/services/hospitalService';
 import { Copy, MapPin, AlertCircle, Loader } from 'lucide-react';
 
+// Google Maps types declaration
+declare global {
+  interface Window {
+    google: typeof google;
+  }
+}
+
 interface Doctor {
   id: string;
   name: string;

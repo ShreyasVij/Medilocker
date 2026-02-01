@@ -1,6 +1,13 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+
+// Google Maps types declaration
+declare global {
+  interface Window {
+    google: typeof google;
+  }
+}
 import { MapPin, AlertCircle, Loader } from 'lucide-react';
 import { getUserGPSLocation } from '@/services/hospitalService';
 

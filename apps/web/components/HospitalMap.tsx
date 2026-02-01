@@ -1,6 +1,13 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+
+// Google Maps types declaration
+declare global {
+  interface Window {
+    google: typeof google;
+  }
+}
 import { 
   Hospital, 
   getUserGPSLocation, 
@@ -24,6 +31,7 @@ interface Doctor {
 
 interface HospitalMapProps {
   radiusKm?: number;
+  showNearbyOnly?: boolean;
   type?: 'hospital' | 'clinic';
   onHospitalSelect?: (hospital: Hospital) => void;
 }
@@ -48,6 +56,7 @@ const isGoogleMapsLoaded = (): boolean => {
  */
 const HospitalMap: React.FC<HospitalMapProps> = ({
   radiusKm = 10,
+  showNearbyOnly = true,
   type,
   onHospitalSelect,
 }) => {

@@ -3,6 +3,13 @@
  * GPS-First approach: Uses Google Maps Places API to find nearby medical facilities
  */
 
+// Google Maps types declaration
+declare global {
+  interface Window {
+    google: typeof google;
+  }
+}
+
 export interface Hospital {
   id: string;
   name: string;

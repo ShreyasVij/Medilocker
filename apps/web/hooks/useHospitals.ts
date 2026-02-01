@@ -60,14 +60,17 @@ export function useNearbyHospitals(radiusKm: number = 5, type?: 'hospital' | 'cl
 
   useEffect(() => {
     if (location) {
-      const nearby = getNearbyHospitals(
-        location.latitude,
-        location.longitude,
-        radiusKm,
-        type
-      );
-      setHospitals(nearby);
-      setLoading(false);
+      const fetchNearby = async () => {
+        const nearby = await getNearbyHospitals(
+          location.latitude,
+          location.longitude,
+          radiusKm,
+          type
+        );
+        setHospitals(nearby);
+        setLoading(false);
+      };
+      fetchNearby();
     }
   }, [location, radiusKm, type]);
 
@@ -82,7 +85,11 @@ export function useHospitalSearch(query: string) {
 
   useEffect(() => {
     if (query.trim()) {
-      setResults(searchHospitals(query));
+      const fetchResults = async () => {
+        const results = await searchHospitals(query);
+        setResults(results);
+      };
+      fetchResults();
     } else {
       setResults([]);
     }
@@ -99,8 +106,12 @@ export function useAllHospitals() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setHospitals(getAllHospitals());
-    setLoading(false);
+    const fetchHospitals = async () => {
+      const hospitals = await getAllHospitals();
+      setHospitals(hospitals);
+      setLoading(false);
+    };
+    fetchHospitals();
   }, []);
 
   return { hospitals, loading };
