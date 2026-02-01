@@ -1,6 +1,6 @@
 // Auth helper utilities: OAuth initiation URLs, token parsing, session helpers.
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/authOptions';
 
 export function buildOAuthRedirectUrl(provider: 'google' | 'github' | 'institution'): string {
   return '';
