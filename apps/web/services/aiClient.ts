@@ -108,6 +108,17 @@ export async function callExplain(params: { modelOutput: unknown }) {
   return res.json();
 }
 
+// Simple OpenRouter summary call: sends raw text prompt and returns model output.
+export async function callOpenRouterSummary(text: string) {
+  const res = await fetch(`${AI_BASE}/openrouter`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${AI_TOKEN}` },
+    body: JSON.stringify({ prompt: text }),
+  });
+  if (!res.ok) throw new Error(`OpenRouter summary failed: ${res.status}`);
+  return res.json();
+}
+
 
 // Prompt for overall health summary (club synonyms, avoid duplicates)
 export async function callHealthSummaryPrompt(params: { documentsData: any, ocrTexts?: string[] }) {

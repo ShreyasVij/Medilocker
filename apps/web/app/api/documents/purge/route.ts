@@ -47,7 +47,7 @@ export async function DELETE(request: NextRequest) {
     // Finally remove the document itself
     await documentsCol.deleteOne({ id: docId } as any);
     try {
-      const owner = doc?.ownerUserId || doc?.ownerId || undefined;
+      const owner = doc?.ownerUserId;
       if (owner) void regenerateHealthSummary(owner).catch(() => {});
     } catch {}
 

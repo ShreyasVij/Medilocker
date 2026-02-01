@@ -33,7 +33,7 @@ export async function GET() {
         if (!key) continue;
         const existing = latestByType.get(key);
         // Always ensure advice is present if available
-        const advice = v.advice || (v.aiResult && v.aiResult.advice) || '';
+        const advice = v.advice || '';
         if (!existing || (existing.documentDate && v.documentDate > existing.documentDate)) {
           v.explanation = v.explanation || 'No explanation available.';
           v.advice = advice;
@@ -96,6 +96,7 @@ export async function GET() {
             documentDate,
             source: documentSource,
             explanation: vital.explanation || "",
+            advice: vital.advice || "",
             status: vital.status || undefined,
             createdAt: documentDate,
             updatedAt: documentDate,

@@ -37,8 +37,9 @@ export async function POST(request: NextRequest) {
           results.push({ email, ok: false, error: 'user-not-found' });
           continue;
         }
-        await ensureUserSpace({ actorId: user.id });
-        results.push({ email, userId: user.id, ok: true });
+        const userIdStr = user._id.toString();
+        await ensureUserSpace({ actorId: userIdStr });
+        results.push({ email, userId: userIdStr, ok: true });
       } catch (err: any) {
         results.push({ email, ok: false, error: err?.message || 'init-failed' });
       }
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     await logAudit(request, {
       actorId,
-      action: 'admin.storage.init',
+      action: 'admin.action',
       target: 'storage',
       targetType: 'system',
       resourceId: 'storage-init',

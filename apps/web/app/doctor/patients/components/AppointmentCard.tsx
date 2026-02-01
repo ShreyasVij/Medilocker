@@ -27,37 +27,19 @@ export default function AppointmentCard({
     ongoing: "Ongoing",
     completed: "Completed",
   } as const;
-  // Calculate age from dob if available
-  const calculateAge = (dob?: string) => {
-    if (!dob) return "N/A";
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  // Supabase profile image URL (if available)
-  const profileImageUrl = appointment.profileImageUrl || "";
+  // Appointment model provides age directly; profile image not included
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-start gap-3">
           <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
-            {profileImageUrl ? (
-              <img src={profileImageUrl} alt="Patient" className="h-10 w-10 rounded-full object-cover" />
-            ) : (
-              <User2 className="h-5 w-5 text-gray-600" />
-            )}
+            <User2 className="h-5 w-5 text-gray-600" />
           </div>
           <div>
             <h4 className="font-semibold text-gray-900">{appointment.patientName}</h4>
             <p className="text-sm text-gray-500">
-              {calculateAge(appointment.dob)} years, {appointment.gender}
+              {typeof appointment.age === "number" ? `${appointment.age} years` : "N/A"}, {appointment.gender}
             </p>
           </div>
         </div>

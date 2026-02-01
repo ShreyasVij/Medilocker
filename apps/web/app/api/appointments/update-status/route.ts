@@ -46,7 +46,10 @@ export async function GET(req: Request) {
     }
     if (patientEmail) {
       try {
-        const doctorName = appointment.doctorName || "Doctor";
+        // Lookup doctor's name from doctors collection
+        const doctorsCol = await getCollection<DoctorDocument>("doctors");
+        const doc = await doctorsCol.findOne({ _id: appointment.doctorId });
+        const doctorName = doc?.name || "Doctor";
         const emailParams = {
           patientName: appointment.patientName,
           doctorName,

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/authOptions";
 import { getCollection } from "@/lib/db";
 import type { UserDocument } from "@db/users";
 import { ObjectId } from "mongodb";
+import type { DocumentDocument } from "@db/documents";
 
 /**
  * DELETE /api/profile/delete
@@ -73,14 +74,9 @@ export async function DELETE(req: Request) {
 
 
     // 1. Delete documents
-    const documents = await getCollection("documents");
-    const documentsList = await documents.find({
-      $or: [
-        { ownerUserId: userIdString },
-        { ownerUserId: userId }
-      ]
-    }).toArray();
-    const documentIds = documentsList.map((doc: any) => doc.id);
+    const documents = await getCollection<DocumentDocument>("documents");
+    const documentsList = await documents.find({ ownerUserId: userIdString }).toArray();
+    const documentIds = documentsList.map((doc) => doc.id);
     // Gather all storage keys for Supabase cleanup
     const storageKeys = [];
     for (const doc of documentsList) {
@@ -97,12 +93,7 @@ export async function DELETE(req: Request) {
       console.error("Supabase storage cleanup failed", e);
     }
     // Now delete documents from DB
-    const documentsResult = await documents.deleteMany({
-      $or: [
-        { ownerUserId: userIdString },
-        { ownerUserId: userId }
-      ]
-    });
+    const documentsResult = await documents.deleteMany({ ownerUserId: userIdString });
     deletionResults.documents = documentsResult.deletedCount;
 
     // 2. Delete OCR outputs (find document IDs first)

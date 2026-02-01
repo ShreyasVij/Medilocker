@@ -5,8 +5,8 @@ import type { OcrOutputDocument } from '@/../../packages/db/ocrOutputs';
 
 export async function GET(request: NextRequest) {
   try {
-    const { role } = await getIdentity();
-    if (role === 'guest') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { session } = await getIdentity();
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const id = request.nextUrl.searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });

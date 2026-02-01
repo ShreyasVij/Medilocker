@@ -269,8 +269,9 @@ export async function GET(req: NextRequest) {
     const sanitizedTokens = activeTokens.map(t => ({
       id: t._id?.toString(),
       createdAt: t.createdAt,
-      expiresAt: t.expiresAt,
-      used: t.used,
+      lastAccessedAt: t.lastAccessedAt,
+      accessCount: t.accessCount,
+      isPermanent: t.isPermanent,
       revoked: t.revoked,
     }));
     

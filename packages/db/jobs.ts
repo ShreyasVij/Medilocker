@@ -3,7 +3,7 @@ import { IndexSpec } from './indexes';
 
 export interface JobDocument {
   id: string;
-  type: 'ingest' | 'ocr' | 'classify' | 'extract-structured' | 'summarize-doc' | 'history-summary';
+  type: 'ingest' | 'ocr' | 'classify' | 'extract-structured' | 'summarize-doc' | 'history-summary' | 'generate-title';
   status: 'pending' | 'processing' | 'completed' | 'failed';
   priority?: number;
   attempts?: number;
