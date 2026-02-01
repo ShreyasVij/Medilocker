@@ -24,6 +24,7 @@ export async function DELETE(request: NextRequest) {
     const classCol = await getCollection<ClassificationDocument>('classification');
     const summariesCol = await getCollection<SummaryDocument>('summaries');
     const ocrCol = await getCollection<OcrOutputDocument>('ocrOutputs');
+    const userVitalsCol = await getCollection<any>('userVitals');
 
     // Gather storage keys to delete from Supabase
     const versions = await versionsCol.find({ documentId: docId } as any).toArray();
@@ -40,11 +41,13 @@ export async function DELETE(request: NextRequest) {
     await classCol.deleteOne({ documentId: docId } as any);
     await summariesCol.deleteMany({ $or: [ { documentId: docId }, { id: docId } ] } as any);
     await ocrCol.deleteMany({ documentId: docId } as any);
+    // Delete only userVitals tied to this document
+    await userVitalsCol.deleteMany({ documentId: docId } as any);
 
     // Finally remove the document itself
     await documentsCol.deleteOne({ id: docId } as any);
     try {
-      const owner = doc?.ownerUserId || doc?.ownerId || undefined;
+      const owner = doc?.ownerUserId;
       if (owner) void regenerateHealthSummary(owner).catch(() => {});
     } catch {}
 

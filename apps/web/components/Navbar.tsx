@@ -81,7 +81,7 @@ export default function Navbar() {
                   </div>
                 </Link>
                 <button
-                  onClick={() => signOut({ callbackUrl: '/home' })}
+                  onClick={() => signOut({ callbackUrl: '/' })}
                   className="btn btn-sm btn-outline-secondary"
                 >
                   Sign out

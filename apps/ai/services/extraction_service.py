@@ -24,20 +24,9 @@ log_openrouter_key(_openrouter_key, context='extraction_service')
 
 # Model rotation list (free models per user request)
 _MODEL_ROTATION: tuple[str, ...] = (
-    "mistralai/devstral-2512:free",
-    "openai/gpt-oss-20b:free",
-    "openai/gpt-oss-120b:free",
-    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "google/gemini-2.0-flash-exp:free",
-    "meta-llama/llama-3.2-3b-instruct:free",
-    "mistralai/mistral-7b-instruct:free",
     "arcee-ai/trinity-mini:free",
-    "google/gemma-3-27b-it:free",
-    "google/gemma-3n-e2b-it:free",
-    "allenai/olmo-3-32b-think:free",
-    "qwen/qwen3-4b:free",
-    "mistralai/mistral-small-3.1-24b-instruct:free",
+    "liquid/lfm-2.5-1.2b-instruct:free",
+    "nvidia/nemotron-3-nano-30b-a3b:free",
 )
 
 _model_cycle: Iterable[str] = itertools.cycle(_MODEL_ROTATION)

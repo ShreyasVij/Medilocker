@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ConfirmModal from "../../components/ui/ConfirmModal";
@@ -33,13 +33,12 @@ export default function ProfilePage() {
   });
 
   const [userMetadata, setUserMetadata] = useState({
-    userId: "",
     joinedDate: "",
     status: "Active",
     verified: false
   });
 
-  const [bannerColor, setBannerColor] = useState("bg-gradient-to-r from-blue-500 to-purple-600");
+  const [bannerColor, setBannerColor] = useState("bg-white");
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmPreviewUrl, setConfirmPreviewUrl] = useState("");
@@ -119,16 +118,14 @@ export default function ProfilePage() {
     try {
       setDeleting(true);
       const res = await fetch("/api/profile/delete", { method: "DELETE" });
-      
       if (!res.ok) {
         const data = await res.json();
         alert(data.error || "Failed to delete profile");
         return;
       }
-
       alert("Your profile and all associated data have been permanently deleted. You will now be signed out.");
-      // Sign out and redirect to home
-      window.location.href = "/auth";
+      // Sign out and redirect to home, clearing auth/session
+      await signOut({ callbackUrl: "/" });
     } catch (error) {
       console.error("Failed to delete profile:", error);
       alert("An error occurred while deleting your profile. Please try again.");
@@ -171,12 +168,13 @@ export default function ProfilePage() {
           // Extract color from existing profile image
           if (p.profileImageUrl) {
             extractDominantColor(p.profileImageUrl);
+          } else {
+            setBannerColor('bg-white');
           }
         }
 
         if (user) {
           setUserMetadata({
-            userId: user._id?.toString().slice(-8) || "",
             joinedDate: user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { 
               day: 'numeric', 
               month: 'long', 
@@ -223,6 +221,7 @@ export default function ProfilePage() {
           setConfirmPreviewUrl("");
         }
         setConfirmOpen(false);
+        setBannerColor('bg-white');
       }
       return;
     }
@@ -347,9 +346,8 @@ export default function ProfilePage() {
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 {/* Banner */}
                 <div 
-                  className="h-24" 
-                  style={{ background: bannerColor.startsWith('linear-gradient') ? bannerColor : '' }}
-                  {...(!bannerColor.startsWith('linear-gradient') ? { className: `h-24 ${bannerColor}` } : {})}
+                  className="h-24"
+                  style={{ background: bannerColor.includes('gradient') ? bannerColor : 'white' }}
                 ></div>
                 
                 {/* User Info */}
@@ -365,8 +363,8 @@ export default function ProfilePage() {
                           className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg" 
                         />
                       ) : (
-                        <div className="h-24 w-24 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 border-4 border-white shadow-lg flex items-center justify-center">
-                          <span className="text-4xl font-semibold text-white">
+                        <div className="h-24 w-24 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center">
+                          <span className="text-4xl font-semibold text-gray-400">
                             {form.name ? form.name.charAt(0).toUpperCase() : "U"}
                           </span>
                         </div>
@@ -407,18 +405,8 @@ export default function ProfilePage() {
                   {/* Divider */}
                   <div className="border-t border-gray-200 mb-4"></div>
 
-                  {/* Metadata */}
+                  {/* Metadata (User ID removed) */}
                   <div className="space-y-3">
-                    <div className="flex items-center text-sm">
-                      <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
-                      </svg>
-                      <span className="text-gray-500 flex-1">User ID</span>
-                      <span className="font-medium text-gray-700">
-                        {userMetadata.userId ? `0e${userMetadata.userId.slice(0, 6)}...` : "..."}
-                      </span>
-                    </div>
-
                     <div className="flex items-center text-sm">
                       <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -426,7 +414,6 @@ export default function ProfilePage() {
                       <span className="text-gray-500 flex-1">Joined</span>
                       <span className="font-medium text-gray-700">{userMetadata.joinedDate || "..."}</span>
                     </div>
-
                     <div className="flex items-center text-sm">
                       <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />

@@ -5,8 +5,8 @@ import { callSummarize } from '@/services/aiClient';
 
 export async function POST(request: NextRequest) {
   try {
-    const { role } = await getIdentity();
-    if (role === 'guest') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { session } = await getIdentity();
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json().catch(() => ({}));
     const documentId = body?.documentId as string;

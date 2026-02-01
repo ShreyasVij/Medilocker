@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/authOptions";
 import { getCollection } from "@/lib/db";
 import type { AppointmentDocument, DoctorDocument } from "@db/doctors";
 import type { UserDocument } from "@db/users";
+import type { ProfileDocument } from "@db/profiles";
 import { ObjectId } from "mongodb";
 
 // GET - Fetch appointments for the logged-in doctor
@@ -59,29 +60,40 @@ export async function GET(req: Request) {
     console.log(`📋 Doctor ${doctor._id} fetching appointments: Found ${results.length} appointments with query:`, query);
 
     // Fetch fresh profile data for each patient to get current age/gender
-    const userIds = results
-      .filter(apt => apt.patientId)
-      .map(apt => apt.patientId);
-    
-    const profiles = await getCollection("profiles");
-    const patientProfiles = await profiles.find({
-      userId: { $in: userIds }
-    }).toArray();
+    const patientObjectIds = results
+      .filter((apt) => apt.patientId)
+      .map((apt) => apt.patientId as ObjectId);
 
-    // Create a map for quick lookup
-    const profileMap = new Map();
-    patientProfiles.forEach((profile: any) => {
+    // Fetch profile docs (userId stored as string)
+    const userIdStrings = patientObjectIds.map((id) => id.toString());
+    const profiles = await getCollection<ProfileDocument>("profiles");
+    const patientProfiles = await profiles
+      .find({ userId: { $in: userIdStrings } })
+      .toArray();
+
+    const profileMap = new Map<string, ProfileDocument>();
+    patientProfiles.forEach((profile) => {
       profileMap.set(profile.userId.toString(), profile);
     });
+
+    // Also fetch users to get gender/dob fallback
+    const usersCol = await getCollection<UserDocument>("users");
+    const usersForPatients = await usersCol
+      .find({ _id: { $in: patientObjectIds } })
+      .toArray();
+    const userMap = new Map<string, UserDocument>();
+    usersForPatients.forEach((u) => userMap.set(u._id.toString(), u));
 
     // Transform to match frontend format with fresh profile data
     const formattedAppointments = results.map((apt) => {
       const profile = apt.patientId ? profileMap.get(apt.patientId.toString()) : null;
-      
-      // Calculate fresh age from profile DOB
+      const user = apt.patientId ? userMap.get(apt.patientId.toString()) : null;
+
+      // Calculate fresh age from profile.dateOfBirth or user.profile.dob
       let currentAge = apt.patientAge;
-      if (profile?.dob) {
-        const birthDate = new Date(profile.dob);
+      const dob = profile?.dateOfBirth || user?.profile?.dob;
+      if (dob) {
+        const birthDate = new Date(dob);
         const today = new Date();
         currentAge = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -90,13 +102,13 @@ export async function GET(req: Request) {
         }
       }
 
-      // Get fresh gender from profile
+      // Get fresh gender from user.profile.gender
       let currentGender = apt.patientGender;
-      if (profile?.gender) {
-        const gender = profile.gender.toLowerCase();
-        if (gender === "male") currentGender = "Male";
-        else if (gender === "female") currentGender = "Female";
-        else if (gender === "other") currentGender = "Other";
+      const genderVal = user?.profile?.gender;
+      if (genderVal) {
+        if (genderVal === "male") currentGender = "Male";
+        else if (genderVal === "female") currentGender = "Female";
+        else if (genderVal === "other") currentGender = "Other";
       }
 
       return {

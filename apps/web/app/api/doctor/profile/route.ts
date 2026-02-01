@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/authOptions";
 import { getCollection } from "@/lib/db";
 import type { DoctorDocument, DoctorProfile } from "@db/doctors";
 import type { UserDocument } from "@db/users";
@@ -125,7 +125,9 @@ export async function POST(req: Request) {
       phone,
       dob,
       gender,
-      hos,
+      address,
+      latitude,
+      longitude,
       city,
       state,
       country,
@@ -151,10 +153,12 @@ export async function POST(req: Request) {
       profileImageUrl: (toNullIfEmpty(avatarUrl) as any) || prevAvatar,
       profileImageName: (toNullIfEmpty(avatarFileName) as any) || prevAvatarName,
       location: {
-        hos: toNullIfEmpty(hos) as any,
+        hos: toNullIfEmpty(address) as any,
         city: toNullIfEmpty(city) as any,
         state: toNullIfEmpty(state) as any,
         country: toNullIfEmpty(country) || "India",
+        latitude: latitude ? parseFloat(latitude) : undefined,
+        longitude: longitude ? parseFloat(longitude) : undefined,
       },
     };
 

@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/authOptions";
 import { getCollection } from "@/lib/db";
 import type { DoctorDocument } from "@db/doctors";
 import type { UserDocument } from "@db/users";
 import type { DocumentDocument } from "@db/documents";
-import type { ProfileDocument } from "@db/profiles";
 import { ObjectId } from "mongodb";
 
 // GET - Fetch all documents for a specific patient
@@ -56,27 +55,16 @@ export async function GET(
       return NextResponse.json({ error: "Patient user account not found" }, { status: 404 });
     }
 
-    // 2. Fetch Profile (Robust Check)
-    // Check if userId is stored as an ObjectId OR as a String to prevent "Not Found" errors
+    // 2. Fetch Profile
+    // Profiles use string `userId`; query by string for type safety
     const profiles = await getCollection<ProfileDocument>("profiles");
-    const patientProfile = await profiles.findOne({ 
-      $or: [
-        { userId: patientObjectId as any },       // Check as ObjectId
-        { userId: patientId }              // Check as String
-      ]
-    });
+    const patientProfile = await profiles.findOne({ userId: patientId });
 
-    // 3. Fetch Documents (Robust Check)
-    // Documents usually store ownerUserId as a String, but check both just in case
+    // 3. Fetch Documents
+    // Documents store ownerUserId as a String; query by string for type safety
     const documents = await getCollection<DocumentDocument>("documents");
     const patientDocuments = await documents
-      .find({ 
-        $or: [
-          { ownerUserId: patientId },                // Check as String (Standard)
-          { ownerUserId: patientObjectId as any }           // Check as ObjectId (Just in case)
-        ],
-        status: "active" // Only show active documents
-      })
+      .find({ ownerUserId: patientId, status: "active" })
       .sort({ createdAt: -1 })
       .toArray();
 

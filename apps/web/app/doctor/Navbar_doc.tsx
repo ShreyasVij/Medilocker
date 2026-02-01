@@ -164,7 +164,7 @@ export function AppNavbar({ userName = "Sanchit Kumar Mishra", userRole = "patie
                 className="text-destructive focus:bg-destructive/10 focus:text-destructive rounded-lg py-2.5 cursor-pointer"
                 onSelect={(event) => {
                   event.preventDefault();
-                  signOut({ callbackUrl: "/doctor/Home" });
+                  signOut({ callbackUrl: "/auth" });
                 }}
               >
                 <LogOut className="mr-3 h-4 w-4" /> Sign Out

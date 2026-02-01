@@ -1,0 +1,99 @@
+# Render Blueprint for MediLocker
+# See: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: medilocker-web
+    env: node
+    rootDir: apps/web
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    autoDeploy: true
+    # Optionally set a health check if you have a simple route
+    healthCheckPath: /
+    envVars:
+      # Point the web app to the AI backend
+      - key: AI_BASE_URL
+        fromService:
+          type: web
+          name: medilocker-ai
+          property: defaultHostname
+      # Shared internal token (set the same value on all services)
+      - key: INTERNAL_AUTH_TOKEN
+        value: "CHANGEME_INTERNAL_TOKEN"
+      # MongoDB (Atlas) connection
+      - key: MONGODB_URI
+        value: "CHANGEME_MONGODB_URI"
+      - key: MONGODB_DB
+        value: "medilocker"
+      # Supabase storage
+      - key: SUPABASE_URL
+        value: "CHANGEME_SUPABASE_URL"
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: "CHANGEME_SUPABASE_SERVICE_ROLE_KEY"
+      - key: SUPABASE_BUCKET
+        value: "medilocker"
+      # NextAuth
+      - key: NEXTAUTH_URL
+        fromService:
+          type: web
+          name: medilocker-web
+          property: defaultHostname
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      # Public keys
+      - key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        value: "CHANGEME_GOOGLE_MAPS_API_KEY"
+
+  - type: web
+    name: medilocker-ai
+    env: python
+    buildCommand: pip install -r apps/ai/requirements.txt
+    startCommand: bash -lc "cd apps/ai && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: INTERNAL_AUTH_TOKEN
+        value: "CHANGEME_INTERNAL_TOKEN"
+      - key: MONGODB_URI
+        value: "CHANGEME_MONGODB_URI"
+      - key: MONGODB_DB
+        value: "medilocker"
+      - key: SUPABASE_URL
+        value: "CHANGEME_SUPABASE_URL"
+      - key: SUPABASE_SERVICE_KEY
+        value: "CHANGEME_SUPABASE_SERVICE_KEY"
+      - key: SUPABASE_BUCKET
+        value: "medilocker"
+      - key: OPENROUTER_API_KEY
+        value: "CHANGEME_OPENROUTER_API_KEY"
+      - key: OPENROUTER_BASE_URL
+        value: "https://openrouter.ai/api/v1"
+      # Optional CORS for browser-direct calls; set to your web URL if needed
+      - key: ALLOW_ORIGINS
+        value: "https://medilocker-web.onrender.com"
+
+  - type: worker
+    name: medilocker-worker
+    env: python
+    buildCommand: pip install -r apps/ai/requirements.txt
+    startCommand: python apps/ai/workers/tasks.py
+    autoDeploy: true
+    envVars:
+      - key: INTERNAL_AUTH_TOKEN
+        value: "CHANGEME_INTERNAL_TOKEN"
+      - key: WEB_BASE_URL
+        fromService:
+          type: web
+          name: medilocker-web
+          property: defaultHostname
+      - key: MONGODB_URI
+        value: "CHANGEME_MONGODB_URI"
+      - key: MONGODB_DB
+        value: "medilocker"
+      - key: SUPABASE_URL
+        value: "CHANGEME_SUPABASE_URL"
+      - key: SUPABASE_SERVICE_KEY
+        value: "CHANGEME_SUPABASE_SERVICE_KEY"
+      - key: SUPABASE_BUCKET
+        value: "medilocker"

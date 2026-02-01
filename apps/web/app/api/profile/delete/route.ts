@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/authOptions";
 import { getCollection } from "@/lib/db";
 import type { UserDocument } from "@db/users";
 import { ObjectId } from "mongodb";
+import type { DocumentDocument } from "@db/documents";
 
 /**
  * DELETE /api/profile/delete
@@ -71,25 +72,31 @@ export async function DELETE(req: Request) {
       user: 0,
     };
 
+
     // 1. Delete documents
-    const documents = await getCollection("documents");
-    const documentsResult = await documents.deleteMany({
-      $or: [
-        { ownerUserId: userIdString },
-        { ownerUserId: userId }
-      ]
-    });
+    const documents = await getCollection<DocumentDocument>("documents");
+    const documentsList = await documents.find({ ownerUserId: userIdString }).toArray();
+    const documentIds = documentsList.map((doc) => doc.id);
+    // Gather all storage keys for Supabase cleanup
+    const storageKeys = [];
+    for (const doc of documentsList) {
+      if (doc?.storageKey) storageKeys.push(doc.storageKey);
+    }
+    // Remove all user files from Supabase Storage (best-effort)
+    try {
+      const { deleteStorageObjects } = await import("@/services/storageClient");
+      await deleteStorageObjects({
+        // Use default bucket (medilocker) or env
+        keys: storageKeys
+      });
+    } catch (e) {
+      console.error("Supabase storage cleanup failed", e);
+    }
+    // Now delete documents from DB
+    const documentsResult = await documents.deleteMany({ ownerUserId: userIdString });
     deletionResults.documents = documentsResult.deletedCount;
 
     // 2. Delete OCR outputs (find document IDs first)
-    const documentsList = await documents.find({
-      $or: [
-        { ownerUserId: userIdString },
-        { ownerUserId: userId }
-      ]
-    }).toArray();
-    const documentIds = documentsList.map((doc: any) => doc.id);
-    
     if (documentIds.length > 0) {
       const ocrOutputs = await getCollection("ocrOutputs");
       const ocrResult = await ocrOutputs.deleteMany({

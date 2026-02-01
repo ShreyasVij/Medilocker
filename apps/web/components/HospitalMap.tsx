@@ -8,6 +8,20 @@ import {
 } from '@/services/hospitalService';
 import { Copy, Share2, MapPin, AlertCircle, Loader } from 'lucide-react';
 
+interface Doctor {
+  id: string;
+  name: string;
+  doctorCode: string;
+  specialization: string;
+  profileImageUrl?: string;
+  location: {
+    hos?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+  };
+}
+
 interface HospitalMapProps {
   radiusKm?: number;
   type?: 'hospital' | 'clinic';
@@ -45,9 +59,12 @@ const HospitalMap: React.FC<HospitalMapProps> = ({
 
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [displayedHospitals, setDisplayedHospitals] = useState<Hospital[]>([]);
+  const [displayedDoctors, setDisplayedDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedDoctorCode, setCopiedDoctorCode] = useState<string | null>(null);
+  const doctorCoordinatesRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
 
   // Copy location to clipboard
   const copyLocation = async (hospital: Hospital) => {
@@ -59,6 +76,17 @@ const HospitalMap: React.FC<HospitalMapProps> = ({
       setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
       console.error('Failed to copy');
+    }
+  };
+
+  // Copy doctor code to clipboard
+  const copyDoctorCode = async (doctorCode: string) => {
+    try {
+      await navigator.clipboard.writeText(doctorCode);
+      setCopiedDoctorCode(doctorCode);
+      setTimeout(() => setCopiedDoctorCode(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy doctor code');
     }
   };
 
@@ -84,6 +112,175 @@ const HospitalMap: React.FC<HospitalMapProps> = ({
   // Open in Google Maps
   const openInMaps = (hospital: Hospital) => {
     window.open(`https://www.google.com/maps?q=${hospital.latitude},${hospital.longitude}`, '_blank');
+  };
+
+  // Add doctor markers to map (with distinct color and doctor code)
+  const addDoctorMarkers = (doctors: Doctor[], map: google.maps.Map) => {
+    if (!map || !isGoogleMapsLoaded()) return;
+
+    doctors.forEach((doctor) => {
+      const coords = doctorCoordinatesRef.current.get(doctor.id);
+      if (!coords) return;
+
+      // Green/Teal marker for doctors from our database
+      const marker = new google.maps.Marker({
+        position: coords,
+        map: map,
+        title: doctor.name,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 12,
+          fillColor: '#10b981', // Green for our doctors
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 3,
+        },
+      });
+
+      marker.addListener('click', () => {
+        if (infoWindowRef.current) {
+          infoWindowRef.current.close();
+        }
+
+        const locationStr = [doctor.location.hos, doctor.location.city, doctor.location.state, doctor.location.country]
+          .filter(Boolean)
+          .join(', ');
+
+        const profileImageHtml = doctor.profileImageUrl 
+          ? `<img src="${doctor.profileImageUrl}" alt="${doctor.name}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid #10b981; margin-right: 10px; flex-shrink: 0;" />`
+          : `<div style="width: 32px; height: 32px; border-radius: 50%; background: #e5e7eb; display: flex; align-items: center; justify-content: center; margin-right: 10px; flex-shrink: 0; border: 2px solid #10b981;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </div>`;
+
+        const content = `
+          <div style="max-width: 300px; padding: 12px; font-family: Arial, sans-serif; color: #1f2937;">
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              ${profileImageHtml}
+              <div>
+                <h3 style="margin: 0; font-size: 14px; font-weight: bold; color: #059669;">${doctor.name}</h3>
+                <p style="margin: 0; font-size: 11px; color: #6b7280;">${doctor.specialization}</p>
+              </div>
+            </div>
+            
+            <div style="margin: 8px 0 0 0; font-size: 12px; color: #4b5563; display: flex; align-items: flex-start;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" style="margin-right: 6px; flex-shrink: 0; margin-top: 2px;">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+              <span style="line-height: 1.4;"><strong>Location:</strong> ${locationStr}</span>
+            </div>
+
+            <div style="
+              background-color: #f0fdf4;
+              padding: 10px;
+              border-radius: 6px;
+              margin: 10px 0;
+              border-left: 3px solid #10b981;
+            ">
+              <p style="margin: 0 0 6px 0; font-size: 11px; color: #6b7280; font-weight: 600;">Doctor Code</p>
+              <div style="
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                background-color: white;
+                padding: 6px 8px;
+                border-radius: 4px;
+                border: 1px solid #d1d5db;
+              ">
+                <code style="
+                  flex: 1;
+                  font-family: 'Courier New', monospace;
+                  font-size: 11px;
+                  font-weight: 700;
+                  color: #059669;
+                  word-break: break-all;
+                ">${doctor.doctorCode}</code>
+                <button 
+                  id="copy-doc-${doctor.id}" 
+                  data-code="${doctor.doctorCode}"
+                  style="
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    padding: 4px;
+                    color: #10b981;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: opacity 0.2s;
+                  " 
+                  onmouseover="this.style.opacity='0.7'" 
+                  onmouseout="this.style.opacity='1'"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div style="margin: 8px 0 0 0; font-size: 10px; color: #9ca3af; display: flex; align-items: center;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" style="margin-right: 4px;">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+              Verified doctor from our platform
+            </div>
+          </div>
+        `;
+
+        infoWindowRef.current = new google.maps.InfoWindow({ content });
+        infoWindowRef.current.open(map, marker);
+
+        // Add click listener to copy button after info window renders
+        google.maps.event.addListener(infoWindowRef.current, 'domready', () => {
+          const copyBtn = document.getElementById(`copy-doc-${doctor.id}`);
+          if (copyBtn) {
+            copyBtn.addEventListener('click', async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              
+              const code = copyBtn.getAttribute('data-code');
+              if (!code) return;
+
+              try {
+                // Copy to clipboard
+                await navigator.clipboard.writeText(code);
+                
+                // Visual feedback - change to checkmark
+                copyBtn.innerHTML = `
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                  </svg>
+                `;
+                copyBtn.style.color = '#059669';
+                
+                // Reset after 2 seconds
+                setTimeout(() => {
+                  copyBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  `;
+                  copyBtn.style.color = '#10b981';
+                }, 2000);
+              } catch (err) {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy code. Please try again.');
+              }
+            });
+          }
+        });
+      });
+
+      markersRef.current.push(marker);
+    });
   };
 
   // Add markers to map
@@ -246,7 +443,55 @@ const HospitalMap: React.FC<HospitalMapProps> = ({
 
         setDisplayedHospitals(filteredHospitals);
 
-        // STEP 4: Add hospital markers to map
+        // STEP 4: Fetch doctors from our database
+        let doctorsData: Doctor[] = [];
+        try {
+          const doctorsRes = await fetch('/api/doctors/with-locations');
+          if (doctorsRes.ok) {
+            const data = await doctorsRes.json();
+            doctorsData = data.doctors || [];
+            setDisplayedDoctors(doctorsData);
+            console.log(`[HospitalMap] Loaded ${doctorsData.length} doctors`);
+
+            // Geocode doctor locations
+            if (doctorsData.length > 0 && isGoogleMapsLoaded()) {
+              const geocoder = new google.maps.Geocoder();
+              let geocodedCount = 0;
+
+              doctorsData.forEach((doctor) => {
+                const addressParts = [
+                  doctor.location.hos,
+                  doctor.location.city,
+                  doctor.location.state,
+                  doctor.location.country,
+                ].filter(Boolean);
+
+                const address = addressParts.join(', ');
+
+                geocoder.geocode({ address }, (results, status) => {
+                  geocodedCount++;
+
+                  if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
+                    const { lat, lng } = results[0].geometry.location;
+                    doctorCoordinatesRef.current.set(doctor.id, {
+                      lat: lat(),
+                      lng: lng(),
+                    });
+                  }
+
+                  // All doctors geocoded, add markers
+                  if (geocodedCount === doctorsData.length) {
+                    addDoctorMarkers(doctorsData, map);
+                  }
+                });
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('[HospitalMap] Failed to load doctors:', err);
+        }
+
+        // STEP 5: Add hospital markers to map
         addMarkers(filteredHospitals, map);
 
         setLoading(false);

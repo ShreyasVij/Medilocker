@@ -13,14 +13,15 @@ export interface VitalReading {
   documentDate: Date; // Prefer report_date from extraction, fallback to upload date
   source: string; // Document title or type
   explanation: string; // AI-generated 1-2 line explanation with health advice
+  advice: string; // AI-generated actionable advice for this vital
   status?: "normal" | "warning" | "alert"; // Health status indicator
   createdAt: Date;
   updatedAt: Date;
 }
 
 export const userVitalsIndexes: IndexSpec[] = [
-  // Unique constraint: one latest reading per user per vital type
-  { key: { userId: 1, vitalType: 1 }, unique: true, name: 'idx_user_vital_unique' },
+  // Unique constraint: one latest reading per user per document per vital type
+  { key: { userId: 1, documentId: 1, vitalType: 1 }, unique: true, name: 'idx_user_doc_vital_unique' },
   
   // Query by user and category for organized display
   { key: { userId: 1, vitalCategory: 1, documentDate: -1 }, name: 'idx_user_category' },

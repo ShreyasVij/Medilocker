@@ -245,6 +245,8 @@ export async function applySchemaValidation(db: Db): Promise<void> {
                     city: { bsonType: ['string', 'null'] },
                     state: { bsonType: ['string', 'null'] },
                     country: { bsonType: ['string', 'null'] },
+                    latitude: { bsonType: ['double', 'null'] },
+                    longitude: { bsonType: ['double', 'null'] },
                   },
                 },
               },

@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 
 def _load_local_env() -> None:
@@ -58,6 +59,19 @@ from .routers import classify, summarize, trends, recommend, explain, extract, v
 
 app = FastAPI(title="MediLocker AI Services")
 
+# Optional CORS (controlled via env). If ALLOW_ORIGINS is set, enable CORS.
+allow_origins = os.getenv("ALLOW_ORIGINS")
+if allow_origins:
+	origins = [o.strip() for o in allow_origins.split(",") if o.strip()]
+	if origins:
+		app.add_middleware(
+			CORSMiddleware,
+			allow_origins=origins,
+			allow_credentials=True,
+			allow_methods=["*"],
+			allow_headers=["*"]
+		)
+
 # Include AI feature routers; each enforces service-level auth and validation.
 app.include_router(classify.router, prefix="/classify", tags=["classify"])
 app.include_router(summarize.router, prefix="/summarize", tags=["summarize"])
@@ -69,3 +83,8 @@ app.include_router(vitals.router, prefix="/vitals", tags=["vitals"])
 app.include_router(health_summary.router, prefix="/health-summary", tags=["health-summary"])
 app.include_router(openrouter.router, prefix="/openrouter", tags=["openrouter"])
 app.include_router(generate_title.router, prefix="/generate-title", tags=["generate-title"])
+
+# Health check endpoint for Render and uptime monitoring
+@app.get("/health")
+def health():
+	return {"status": "ok"}

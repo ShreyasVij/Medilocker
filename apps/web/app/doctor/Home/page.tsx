@@ -1,6 +1,6 @@
 import React from "react";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/authOptions";
 import Hero from "@/app/home/HeroSection";
 import Awards from "@/app/home/Awards";
 import Stats from "@/app/home/Stats";

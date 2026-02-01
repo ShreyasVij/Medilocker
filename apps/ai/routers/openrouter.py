@@ -30,7 +30,7 @@ async def openrouter_proxy(payload: OpenRouterRequest, _auth=Depends(verify_serv
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "anthropic/claude-3-haiku",
+                    "model": "arcee-ai/trinity-mini:free",
                     "messages": [{"role": "user", "content": payload.prompt}],
                     "max_tokens": 2000,
                 },
