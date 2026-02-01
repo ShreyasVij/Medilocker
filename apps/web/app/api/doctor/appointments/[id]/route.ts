@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/authOptions";
 import { getCollection } from "@/lib/db";
 import { createOAuth2Client, deleteCalendarEvent } from "@/lib/server/googleCalendar";
 import type { AppointmentDocument, DoctorDocument, DoctorFileDocument } from "@db/doctors";

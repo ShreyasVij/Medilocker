@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { Buffer } from "buffer";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/authOptions";
 import { getCollection } from "@/lib/db";
 import { processAndStoreVitals, regenerateHealthSummary } from "@/lib/vitalsProcessor";
 import { callExtract } from "@/services/aiClient";

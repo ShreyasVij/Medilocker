@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/authOptions";
 import { getCollection } from "@/lib/db";
 import type { DoctorDocument } from "@db/doctors";
 import { validateDoctorCode, normalizeDoctorCode } from "@db/utils";

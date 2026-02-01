@@ -80,7 +80,7 @@ export async function GET(req: Request) {
 }
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/authOptions";
 import { getCollection } from "@/lib/db";
 import { sendMail } from "@/lib/server/mail";
 import { getApprovedEmailTemplate } from "@/lib/server/emails/appointment-approved";
