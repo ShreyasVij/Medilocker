@@ -15,6 +15,64 @@ For the full product vision, see `docs/MediLocker-V2-Spec.md`. This README focus
 
 ### Core Features
 - **Account & identity (via NextAuth)**
+## Deploying to Render
+
+This repo includes a `render.yaml` blueprint that defines three services:
+- Web (Next.js) at `apps/web`
+- AI Backend (FastAPI) at `apps/ai`
+- Worker (Python polling worker) at `apps/ai/workers/tasks.py`
+
+### Prerequisites
+- MongoDB Atlas cluster and a `MONGODB_URI` with read/write access.
+- Supabase project with Storage enabled, `SUPABASE_URL`, and a service role key.
+- Google OAuth client configured for NextAuth (authorized callback: `https://<your-web>.onrender.com/api/auth/callback/google`).
+- OpenRouter API key (or disable related endpoints if not used).
+
+### Environment Variables
+Set these in Render’s dashboard per service (or via `render.yaml`), using the same `INTERNAL_AUTH_TOKEN` across services:
+
+Web (`apps/web`):
+- `MONGODB_URI` / `MONGODB_DB`
+- `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_BUCKET`
+- `NEXTAUTH_SECRET` (generate in Render) and `NEXTAUTH_URL` (the web service URL)
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+- `AI_BASE_URL` (the AI service URL)
+- `INTERNAL_AUTH_TOKEN` (shared with AI and worker)
+
+AI (`apps/ai`):
+- `MONGODB_URI` / `MONGODB_DB`
+- `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` / `SUPABASE_BUCKET`
+- `OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL` (optional)
+- `INTERNAL_AUTH_TOKEN` (shared)
+- `ALLOW_ORIGINS` (set to the web URL for browser calls)
+
+Worker:
+- `WEB_BASE_URL` (the web service URL)
+- `MONGODB_URI` / `MONGODB_DB`
+- `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` / `SUPABASE_BUCKET`
+- `INTERNAL_AUTH_TOKEN` (shared)
+
+### Build & Start Commands
+Already defined in `render.yaml`:
+- Web: `npm run build` then `npm run start` (webpack enabled to avoid Turbopack issues on Windows and CI)
+- AI: `pip install -r apps/ai/requirements.txt` then `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- Worker: `pip install -r apps/ai/requirements.txt` then `python apps/ai/workers/tasks.py`
+
+### Steps
+1. Push the repo to GitHub.
+2. In Render, create a Blueprint from `render.yaml` or create services manually (Web, AI, Worker).
+3. Set all required environment variables for each service (see lists above). Ensure `INTERNAL_AUTH_TOKEN` matches across all.
+4. Deploy Web first, then AI, then Worker.
+5. Verify:
+	- Web responds at `/`.
+	- AI responds at `/health` and accepts calls from Web (CORS if browser hits AI).
+	- Worker processes `/api/jobs/next` and `/api/jobs/complete` with `x-internal-token`.
+
+### Notes
+- `NEXTAUTH_URL` must be the public Web URL; Render provides `RENDER_EXTERNAL_URL` automatically, but you should set `NEXTAUTH_URL` explicitly to avoid localhost fallbacks.
+- In production, consider removing `tlsAllowInvalidCertificates=True` in `apps/ai/services/db.py` or guard it behind an env flag.
+- Supabase service role keys grant elevated access; store them as secrets and restrict bucket permissions appropriately.
+
 	- Google OAuth sign-in wired through `apps/web/app/api/auth/[...nextauth]/route.ts`.
 	- Each signed-in user automatically gets a default health profile on first use.
 
