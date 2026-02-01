@@ -5,6 +5,7 @@ import { getCollection } from "@/lib/db";
 import type { DoctorDocument } from "@db/doctors";
 import type { UserDocument } from "@db/users";
 import type { DocumentDocument } from "@db/documents";
+import type { ProfileDocument } from "@db/profiles";
 import { ObjectId } from "mongodb";
 
 // GET - Fetch all documents for a specific patient
@@ -57,10 +58,10 @@ export async function GET(
 
     // 2. Fetch Profile (Robust Check)
     // Check if userId is stored as an ObjectId OR as a String to prevent "Not Found" errors
-    const profiles = await getCollection("profiles");
+    const profiles = await getCollection<ProfileDocument>("profiles");
     const patientProfile = await profiles.findOne({ 
       $or: [
-        { userId: patientObjectId },       // Check as ObjectId
+        { userId: patientObjectId as any },       // Check as ObjectId
         { userId: patientId }              // Check as String
       ]
     });
@@ -72,7 +73,7 @@ export async function GET(
       .find({ 
         $or: [
           { ownerUserId: patientId },                // Check as String (Standard)
-          { ownerUserId: patientObjectId }           // Check as ObjectId (Just in case)
+          { ownerUserId: patientObjectId as any }           // Check as ObjectId (Just in case)
         ],
         status: "active" // Only show active documents
       })
