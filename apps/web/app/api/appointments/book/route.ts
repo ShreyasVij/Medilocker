@@ -134,7 +134,10 @@ export async function POST(req: Request) {
       try {
         const { sendMail } = await import("@/lib/server/mail");
         const { getRequestEmailTemplate } = await import("@/lib/server/emails/appointment-request");
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_APP_URL;
+        if (!baseUrl) {
+          throw new Error('Base URL not configured');
+        }
         const acceptUrl = `${baseUrl}/api/appointments/update-status?appointmentId=${newAppointment._id.toString()}&status=approved`;
         const denyUrl = `${baseUrl}/api/appointments/update-status?appointmentId=${newAppointment._id.toString()}&status=rejected`;
         const emailTemplate = getRequestEmailTemplate({

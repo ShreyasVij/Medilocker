@@ -72,7 +72,11 @@ export async function POST(request: NextRequest) {
       const data = extract?.data || {};
 
       // Mark job completed via existing completion route
-      const completeRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/jobs/complete`, {
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL;
+      if (!baseUrl) {
+        throw new Error('Base URL not configured');
+      }
+      const completeRes = await fetch(`${baseUrl}/api/jobs/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-internal-token': process.env.INTERNAL_AUTH_TOKEN || '' },
         body: JSON.stringify({
@@ -100,7 +104,11 @@ export async function POST(request: NextRequest) {
       const docMeta = extractRes || {};
 
       // Complete the job with the extracted metadata
-      const completeRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/jobs/complete`, {
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL;
+      if (!baseUrl) {
+        throw new Error('Base URL not configured');
+      }
+      const completeRes = await fetch(`${baseUrl}/api/jobs/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-internal-token': process.env.INTERNAL_AUTH_TOKEN || '' },
         body: JSON.stringify({
@@ -145,7 +153,11 @@ export async function POST(request: NextRequest) {
       const explanations = Array.isArray(sumRes?.explanations) ? sumRes.explanations : undefined;
       const confidence = typeof sumRes?.confidence === 'number' ? sumRes.confidence : 0.7;
 
-      const completeRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/jobs/complete`, {
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL;
+      if (!baseUrl) {
+        throw new Error('Base URL not configured');
+      }
+      const completeRes = await fetch(`${baseUrl}/api/jobs/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-internal-token': process.env.INTERNAL_AUTH_TOKEN || '' },
         body: JSON.stringify({

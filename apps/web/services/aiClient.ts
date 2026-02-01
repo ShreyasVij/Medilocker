@@ -1,5 +1,9 @@
 // Client for FastAPI AI services (OCR, classify, summarize, trends, recommend, explain, extract).
-const AI_BASE = process.env.AI_BASE_URL || "http://localhost:8000";
+const AI_BASE = process.env.AI_BASE_URL || process.env.NEXT_PUBLIC_AI_BASE_URL || "";
+
+if (!AI_BASE) {
+  console.warn('AI_BASE_URL not configured. AI features may not work properly.');
+}
 
 // Use the same internal token name as the AI service expects
 const AI_TOKEN = process.env.INTERNAL_AUTH_TOKEN || process.env.AI_SERVICE_TOKEN || "dev-token";

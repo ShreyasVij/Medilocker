@@ -183,7 +183,10 @@ export async function POST(req: NextRequest) {
     }
     
     // Generate QR code
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL;
+    if (!baseUrl) {
+      throw new Error('Base URL not configured');
+    }
     const emergencyUrl = `${baseUrl}/emergency/${token}`;
     
     const qrCode = await QRCode.toDataURL(emergencyUrl, {
