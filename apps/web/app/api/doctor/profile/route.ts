@@ -125,7 +125,9 @@ export async function POST(req: Request) {
       phone,
       dob,
       gender,
-      hos,
+      address,
+      latitude,
+      longitude,
       city,
       state,
       country,
@@ -151,10 +153,12 @@ export async function POST(req: Request) {
       profileImageUrl: (toNullIfEmpty(avatarUrl) as any) || prevAvatar,
       profileImageName: (toNullIfEmpty(avatarFileName) as any) || prevAvatarName,
       location: {
-        hos: toNullIfEmpty(hos) as any,
+        hos: toNullIfEmpty(address) as any,
         city: toNullIfEmpty(city) as any,
         state: toNullIfEmpty(state) as any,
         country: toNullIfEmpty(country) || "India",
+        latitude: latitude ? parseFloat(latitude) : undefined,
+        longitude: longitude ? parseFloat(longitude) : undefined,
       },
     };
 

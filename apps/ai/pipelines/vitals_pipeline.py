@@ -28,7 +28,7 @@ async def generate_vital_explanations_batch(
     # Build batch prompt (same as frontend)
     prompt = (
         "You are a medical AI assistant. For each vital sign or lab value below, club together any synonymous or duplicate values (e.g., 'Red Blood Cell', 'RBC', 'Erythrocyte' should be one entry). "
-        "Generate two concise lines:\n1. What this value means for the user's health (contextualized to the value).\n2. One actionable tip or advice to improve or maintain this value.\n\n"
+        "Generate two concise lines:\n1. What this value means for the user's health (contextualized to the value).\n2. One actionable tip or advice to improve or maintain this value, it should not be seek doctors advice\n\n"
         "Return the output as a JSON array, with each item containing:\n- 'label': the vital name,\n- 'value': the measured value,\n- 'unit': the unit,\n- 'explanation': one line about what it means,\n- 'advice': one line about how to improve or maintain it.\n\nInput:\n"
         + json.dumps(vitals)
     )
@@ -99,6 +99,19 @@ async def generate_vital_explanations_batch(
                         f"Session: {session_id}\nUser: {user_id}\nFallback parse error: {str(e)}\nContent: {content[:500]}"
                     )
             if isinstance(json_array, list):
+                # Ensure each item has both explanation and advice fields
+                for i, item in enumerate(json_array):
+                    if isinstance(item, dict):
+                        # If advice is missing, try to extract from explanation (second line)
+                        explanation_raw = item.get('explanation', '')
+                        advice = item.get('advice', '')
+                        if not advice:
+                            lines = [l.strip() for l in explanation_raw.split('\n') if l.strip()]
+                            if len(lines) > 1:
+                                item['explanation'] = lines[0]
+                                item['advice'] = lines[1]
+                            else:
+                                item['advice'] = ''
                 _log_vitals_event(
                     "BATCH_PARSED_OUTPUT",
                     f"Session: {session_id}\nUser: {user_id}\nParsed {len(json_array)} explanations."
@@ -132,8 +145,8 @@ def _get_openrouter_key() -> str | None:
 
 _openrouter_base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
-# Use a fast, reliable model for quick explanations
-_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
+# Use approved default model for quick explanations
+_MODEL = "arcee-ai/trinity-mini:free"
 
 # Logging setup
 _LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
@@ -162,41 +175,57 @@ def _determine_status(vital_type: str, value: str | float, unit: str | None) -> 
     except (ValueError, TypeError):
         return "normal"
     
+    vt = vital_type.lower()
     # Blood Sugar (mg/dL)
-    if "blood_sugar" in vital_type.lower() or "glucose" in vital_type.lower():
+    if "blood_sugar" in vt or "glucose" in vt:
         if num_value < 70 or num_value > 180:
             return "alert"
         elif num_value > 140:
             return "warning"
-    
     # Blood Pressure Systolic (mmHg)
-    elif "systolic" in vital_type.lower():
-        if num_value >= 140:
-            return "warning"
-        elif num_value >= 180:
+    elif "systolic" in vt:
+        if num_value >= 180:
             return "alert"
-    
+        elif num_value >= 140:
+            return "warning"
     # Blood Pressure Diastolic (mmHg)
-    elif "diastolic" in vital_type.lower():
-        if num_value >= 90:
-            return "warning"
-        elif num_value >= 120:
+    elif "diastolic" in vt:
+        if num_value >= 120:
             return "alert"
-    
+        elif num_value >= 90:
+            return "warning"
     # Cholesterol Total (mg/dL)
-    elif "cholesterol" in vital_type.lower() and "total" in vital_type.lower():
-        if num_value >= 200:
-            return "warning"
-        elif num_value >= 240:
+    elif "cholesterol" in vt and "total" in vt:
+        if num_value >= 240:
             return "alert"
-    
+        elif num_value >= 200:
+            return "warning"
     # Hemoglobin (g/dL)
-    elif "hemoglobin" in vital_type.lower():
-        if num_value < 12 or num_value > 17:
-            return "warning"
-        elif num_value < 10 or num_value > 18:
+    elif "hemoglobin" in vt:
+        if num_value < 10 or num_value > 18:
             return "alert"
-    
+        elif num_value < 12 or num_value > 17:
+            return "warning"
+    # White Blood Cells (WBC)
+    elif any(x in vt for x in ["white blood cell", "wbc"]):
+        # Normal WBC: 4,000-11,000 cells/mcL
+        if num_value < 4000 or num_value > 11000:
+            return "alert"
+    # Red Blood Cells (RBC)
+    elif any(x in vt for x in ["red blood cell", "rbc", "erythrocyte"]):
+        # Normal RBC: 4.5-5.9 million cells/mcL (male), 4.1-5.1 (female) -- use 4.0-6.0 as general
+        if num_value < 4.0 or num_value > 6.0:
+            return "alert"
+    # Platelets
+    elif "platelet" in vt:
+        # Normal: 150,000-450,000 /mcL
+        if num_value < 150000 or num_value > 450000:
+            return "alert"
+    # General blood test grouping
+    elif any(x in vt for x in ["cbc", "complete blood count", "blood test", "blood panel"]):
+        # If a value is way out of range, flag
+        if num_value < 0.5 or num_value > 100:
+            return "alert"
     return "normal"
 
 
@@ -272,16 +301,20 @@ async def generate_vital_explanation(
             "RESPONSE_RAW",
             f"Session: {session_id}\nUser: {user_id}\nRaw Response: {json.dumps(data)[:1000]}{'... [truncated]' if len(json.dumps(data)) > 1000 else ''}"
         )
-        explanation = (
+        explanation_raw = (
             data.get("choices", [{}])[0]
             .get("message", {})
             .get("content", "")
             .strip()
         )
+        # Split into explanation and advice (assume first line is explanation, second is advice)
+        lines = [l.strip() for l in explanation_raw.split('\n') if l.strip()]
+        explanation = lines[0] if len(lines) > 0 else explanation_raw
+        advice = lines[1] if len(lines) > 1 else ''
         # Log the parsed output
         _log_vitals_event(
             "PARSED_OUTPUT",
-            f"Session: {session_id}\nUser: {user_id}\nVital: {label}\nExplanation: {explanation}\nStatus: {status}"
+            f"Session: {session_id}\nUser: {user_id}\nVital: {label}\nExplanation: {explanation}\nAdvice: {advice}\nStatus: {status}"
         )
         if not explanation:
             _log_vitals_event(
@@ -291,6 +324,7 @@ async def generate_vital_explanation(
             explanation = f"{label} recorded at {value}{' ' + unit if unit else ''}. Consult your healthcare provider for detailed interpretation."
         return {
             "explanation": explanation,
+            "advice": advice,
             "status": status,
             "session_id": session_id
         }

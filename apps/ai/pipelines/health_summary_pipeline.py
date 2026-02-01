@@ -16,8 +16,8 @@ def _get_openrouter_key() -> str | None:
 
 _openrouter_base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
-# Use a powerful model for comprehensive analysis
-_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
+# Use approved default model (restricted to allowed models)
+_MODEL = "arcee-ai/trinity-mini:free"
 
 # Logging setup
 _LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
@@ -161,9 +161,9 @@ async def generate_comprehensive_health_summary(
     }
 
     models_to_try = [
-        "meta-llama/llama-3.3-70b-instruct:free",
-        "mistralai/devstral-2512:free",
-        "openai/gpt-3.5-turbo:free"
+        "arcee-ai/trinity-mini:free",
+        "liquid/lfm-2.5-1.2b-instruct:free",
+        "nvidia/nemotron-3-nano-30b-a3b:free",
     ]
     errors = []
     for model in models_to_try:

@@ -99,7 +99,7 @@ Do not include any other text, explanation, or markdown formatting."""
         }
         
         payload = {
-            "model": "anthropic/claude-3.5-sonnet",
+            "model": "arcee-ai/trinity-mini:free",
             "messages": [
                 {"role": "system", "content": "You are a medical document title generator. Return only valid JSON."},
                 {"role": "user", "content": prompt},

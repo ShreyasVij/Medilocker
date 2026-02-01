@@ -5,7 +5,6 @@ import { getCollection } from "@/lib/db";
 import type { AppointmentDocument, DoctorDocument, DoctorFileDocument } from "@db/doctors";
 import type { UserDocument } from "@db/users";
 import type { DocumentDocument } from "@db/documents";
-import type { ProfileDocument } from "@db/profiles";
 import { ObjectId } from "mongodb";
 
 /**
@@ -78,8 +77,8 @@ export async function POST(req: Request) {
     }
 
     // Get patient profile for additional info
-    const profiles = await getCollection<ProfileDocument>("profiles");
-    const patientProfile = await profiles.findOne({ userId: patient._id.toString() } as any);
+    const profiles = await getCollection("profiles");
+    const patientProfile = await profiles.findOne({ userId: patient._id });
 
     // Check for double booking using unique index
     // MongoDB will throw error if appointment already exists for same doctor + date + time
@@ -88,9 +87,8 @@ export async function POST(req: Request) {
     try {
       // Calculate age from profile if available
       let patientAge: number | undefined;
-      const dobSource = patientProfile?.dateOfBirth || patient.profile?.dob;
-      if (dobSource) {
-        const birthDate = new Date(dobSource);
+      if (patientProfile?.dob) {
+        const birthDate = new Date(patientProfile.dob);
         const today = new Date();
         patientAge = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -101,7 +99,7 @@ export async function POST(req: Request) {
 
       // Get gender from profile - try both user.profile and profiles collection
       let patientGender: "Male" | "Female" | "Other" | undefined;
-      const genderSource = (patientProfile as any)?.gender || patient.profile?.gender;
+      const genderSource = patientProfile?.gender || (patient as any).profile?.gender;
       if (genderSource) {
         const gender = genderSource.toLowerCase();
         if (gender === "male") patientGender = "Male";
@@ -130,6 +128,30 @@ export async function POST(req: Request) {
       await appointments.insertOne(newAppointment);
 
       console.log(`✅ Appointment created: ID=${newAppointment._id}, DoctorID=${doctor._id}, PatientID=${patient._id}, Date=${date}, Time=${time}`);
+
+      // Send email to doctor with Accept/Deny buttons using working mail logic and new template
+      try {
+        const { sendMail } = await import("@/lib/server/mail");
+        const { getRequestEmailTemplate } = await import("@/lib/server/emails/appointment-request");
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+        const acceptUrl = `${baseUrl}/api/appointments/update-status?appointmentId=${newAppointment._id.toString()}&status=approved`;
+        const denyUrl = `${baseUrl}/api/appointments/update-status?appointmentId=${newAppointment._id.toString()}&status=rejected`;
+        const emailTemplate = getRequestEmailTemplate({
+          doctorName: doctor.name || "Doctor",
+          patientName: patient.name || session.user.name || "Anonymous",
+          appointmentTime: `${date} ${time}`,
+          acceptUrl,
+          denyUrl,
+        });
+        await sendMail({
+          to: doctor.email,
+          subject: emailTemplate.subject,
+          html: emailTemplate.html,
+          fromName: "MediLocker"
+        });
+      } catch (err) {
+        console.error("Failed to send appointment request email", err);
+      }
 
       // CRITICAL: Transfer all patient medical files to doctor
       await transferPatientFilesToDoctor(

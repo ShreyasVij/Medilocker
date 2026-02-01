@@ -215,7 +215,7 @@ export default function DocumentDetailPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="bg-white border border-gray-200 rounded-lg p-4 max-w-3xl mx-auto">
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Document</p>
@@ -240,10 +240,11 @@ export default function DocumentDetailPage() {
               </div>
 
               {primaryUrl ? (
-                <div className="border border-gray-200 rounded-md overflow-hidden bg-gray-50">
+                <div className="border border-gray-200 rounded-md overflow-hidden bg-gray-50 flex justify-center">
                   <iframe
                     src={primaryUrl}
-                    className="w-full h-[680px] bg-white"
+                    className="w-full max-w-2xl h-[60vh] min-h-[400px] bg-white rounded shadow-sm"
+                    style={{ aspectRatio: '4/5' }}
                     title="Document preview"
                   />
                 </div>

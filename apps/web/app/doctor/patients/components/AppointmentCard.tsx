@@ -27,18 +27,37 @@ export default function AppointmentCard({
     ongoing: "Ongoing",
     completed: "Completed",
   } as const;
+  // Calculate age from dob if available
+  const calculateAge = (dob?: string) => {
+    if (!dob) return "N/A";
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Supabase profile image URL (if available)
+  const profileImageUrl = appointment.profileImageUrl || "";
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-            <User2 className="h-5 w-5 text-gray-600" />
+          <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            {profileImageUrl ? (
+              <img src={profileImageUrl} alt="Patient" className="h-10 w-10 rounded-full object-cover" />
+            ) : (
+              <User2 className="h-5 w-5 text-gray-600" />
+            )}
           </div>
           <div>
             <h4 className="font-semibold text-gray-900">{appointment.patientName}</h4>
             <p className="text-sm text-gray-500">
-              {appointment.age} years, {appointment.gender}
+              {calculateAge(appointment.dob)} years, {appointment.gender}
             </p>
           </div>
         </div>
@@ -70,7 +89,8 @@ export default function AppointmentCard({
             View Details
           </button>
         )}
-        {appointment.status !== "completed" && onMarkComplete && (
+        {/* Only show Accept/Deny/Mark Complete if appointment is pending */}
+        {appointment.status === "pending" && onMarkComplete && (
           <button
             onClick={() => onMarkComplete(appointment.id)}
             className="flex-1 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"

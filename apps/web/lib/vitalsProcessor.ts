@@ -28,6 +28,26 @@ interface ProcessVitalsParams {
 export function normalizeVital(label: string): { type: string; category: string; normalizedLabel: string } {
   const lower = label.toLowerCase();
 
+  // --- Aggressive synonym mapping for problematic vitals ---
+  if (lower.includes('mean corpuscular volume') || lower.includes('mcv') || lower.includes('other_mean_corpuscular_volume') || lower.includes('other_mcv')) {
+    return { type: 'mcv', category: 'Blood Tests', normalizedLabel: 'Mean Corpuscular Volume (MCV)' };
+  }
+  if (lower.includes('platelet count') || lower.includes('platelets')) {
+    return { type: 'platelets', category: 'Blood Tests', normalizedLabel: 'Platelets' };
+  }
+  if (lower.includes('white blood cells') || lower.includes('wbc') || lower.includes('other_white_blood_cells')) {
+    return { type: 'wbc', category: 'Blood Tests', normalizedLabel: 'White Blood Cells (WBC)' };
+  }
+  if (lower.includes('alt') || lower.includes('sgpt') || lower.includes('sgpt alt')) {
+    return { type: 'sgpt_alt', category: 'Liver Function', normalizedLabel: 'SGPT/ALT' };
+  }
+  if (lower.includes('bilirubin') || lower.includes('total bilirubin')) {
+    return { type: 'bilirubin', category: 'Liver Function', normalizedLabel: 'Bilirubin' };
+  }
+  if (lower.includes('bicarbonate') || lower.includes('other_bicarbonate')) {
+    return { type: 'bicarbonate', category: 'Other', normalizedLabel: 'Bicarbonate' };
+  }
+
   // --- Vital Signs ---
   if (lower.includes('blood pressure') || lower.includes('bp sys') || lower.includes('systolic')) {
     return { type: 'blood_pressure_systolic', category: 'Vital Signs', normalizedLabel: 'Blood Pressure (Systolic)' };
@@ -188,8 +208,9 @@ export function normalizeVital(label: string): { type: string; category: string;
   }
 
   // Default/other
+  // REMOVE 'other_' fallback, just use normalized label as type
   return {
-    type: `other_${label.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`,
+    type: label.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase(),
     category: 'Other',
     normalizedLabel: label
   };
@@ -231,32 +252,15 @@ export async function processAndStoreVitals(params: ProcessVitalsParams): Promis
 
   // Do NOT call OpenRouter for explanations here. Only upsert vitals; explanations will be handled in regenerateHealthSummary.
 
-  // Upsert each vital without AI explanations (regeneration will attach explanations later).
+  // Upsert each vital using canonical normalization and documentId
   for (let i = 0; i < validVitals.length; i++) {
     const vital = validVitals[i];
     const { type, category, normalizedLabel } = vital as any;
-    const existing = await vitalsCol.findOne({ userId, vitalType: type } as any);
     const vitalDate = documentDate || now;
-
-    // Skip if we have a newer reading (with date validation)
-    if (existing && existing.documentDate) {
-      try {
-        const existingDate = new Date(existing.documentDate);
-        const currentDate = new Date(vitalDate);
-        if (!isNaN(existingDate.getTime()) && !isNaN(currentDate.getTime())) {
-          if (existingDate > currentDate) {
-            continue;
-          }
-        }
-      } catch (dateErr) {
-        vitalsLogger.warn('Date comparison failed', { vitalType: type, error: dateErr });
-      }
-    }
 
     // No AI explanation assigned here; keep placeholders so regenerateHealthSummary can populate them
     const explanation = 'No explanation available yet';
     const advice = '';
-    // Do not assume 'normal' here; leave `status` undefined until AI assigns one during regeneration
     let status: 'normal' | 'warning' | 'alert' | undefined = undefined;
 
     vitalsLogger.debug('Storing vital (no AI explanation yet)', {
@@ -267,7 +271,7 @@ export async function processAndStoreVitals(params: ProcessVitalsParams): Promis
     });
 
     const vitalReading: VitalReading = {
-      id: `${userId}_${type}`,
+      id: `${userId}_${documentId}_${type}`,
       userId,
       vitalType: type,
       vitalCategory: category,
@@ -278,19 +282,19 @@ export async function processAndStoreVitals(params: ProcessVitalsParams): Promis
       documentDate: vitalDate,
       source: documentSource,
       explanation,
-      advice,
       status,
-      createdAt: existing?.createdAt || now,
-      updatedAt: now
-    };
+      createdAt: now,
+      updatedAt: now,
+      advice: advice || '',
+      };
 
     await vitalsCol.updateOne(
-      { userId, vitalType: type } as any,
+      { userId, documentId, vitalType: type } as any,
       { $set: vitalReading },
       { upsert: true }
     );
 
-    vitalsLogger.info('Vital stored', { vitalType: type });
+    vitalsLogger.info('Vital stored', { vitalType: type, documentId });
   }
 
   vitalsLogger.info('All vitals processed', { documentId });
@@ -346,24 +350,24 @@ export async function regenerateHealthSummary(userId: string): Promise<void> {
       if (metaVitals.length > 0) {
         allVitals.push(...metaVitals.map((v: any) => ({
           ...v,
-          documentId: doc.id,
-          documentDate: doc.createdAt ?? null,
-          documentSource: doc.docType || 'Medical Document'
+          documentId: (doc as any).id,
+          documentDate: (doc as any).createdAt ?? null,
+          documentSource: (doc as any).docType || 'Medical Document'
         })));
       }
     }
     healthSummaryLogger.info('Aggregated vitals for user', { userId, count: allVitals.length });
-    // Normalize and deduplicate vitals by type
+    // Normalize and deduplicate vitals by (type, value, unit)
     const normalizedVitals = allVitals
       .filter(vital => vital.label && vital.value !== null && vital.value !== undefined && vital.value !== '')
       .map(vital => {
         const { type, category, normalizedLabel } = normalizeVital(vital.label);
         return { ...vital, type, category, normalizedLabel };
       });
-    // Deduplicate by type (keep latest by documentDate)
+    // Deduplicate by (type, value, unit) (keep latest by documentDate)
     const dedupedVitalsMap = new Map<string, any>();
     for (const vital of normalizedVitals) {
-      const key = vital.type;
+      const key = `${vital.type}|${vital.value}|${vital.unit || ''}`;
       if (!dedupedVitalsMap.has(key) || (vital.documentDate && dedupedVitalsMap.get(key).documentDate < vital.documentDate)) {
         dedupedVitalsMap.set(key, vital);
       }
@@ -414,22 +418,54 @@ export async function regenerateHealthSummary(userId: string): Promise<void> {
       aiResp = await callVitalExplainBatchPrompt(summaryPrompt.vitals);
       healthSummaryLogger.info('ANSWER_RECEIVED', { response: aiResp });
 
-      // Helper: if a field contains a JSON string that encodes an array, try to parse it
+      // Helper: if a field contains a JSON string that encodes an array, try to parse it.
+      // This is made more robust by extracting the first bracketed JSON array from
+      // a larger string (models sometimes prepend/trail text) and tolerating minor
+      // truncation/noise.
       const tryParseArrayFromString = (candidate: any): any[] | null => {
         if (!candidate || typeof candidate !== 'string') return null;
         const trimmed = candidate.trim();
-        // Heuristic: starts with [ -> parse
+
+        // Fast path: if the whole trimmed string is valid JSON, parse directly
         if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
           try {
             const parsed = JSON.parse(trimmed);
             if (Array.isArray(parsed)) return parsed;
-            // If parsed is an object with an explanations/response array, prefer that
             if (Array.isArray((parsed as any).explanations)) return (parsed as any).explanations;
             if (Array.isArray((parsed as any).response?.explanations)) return (parsed as any).response.explanations;
           } catch (e) {
-            // ignore parse errors
+            // fall through to extraction attempt
           }
         }
+
+        // Attempt to extract the first JSON array substring from the candidate.
+        // Use a greedy regex to capture from the first '[' to the last ']' so
+        // we tolerate extra leading/trailing text from the model output.
+        try {
+          const match = trimmed.match(/\[[\s\S]*\]/);
+          if (match && match[0]) {
+            try {
+              const parsedInner = JSON.parse(match[0]);
+              if (Array.isArray(parsedInner)) return parsedInner;
+            } catch (e) {
+              // If parsing fails, try a more conservative approach: remove trailing
+              // unterminated strings by slicing to last ']' and re-parsing.
+              const lastIndex = match[0].lastIndexOf(']');
+              if (lastIndex > 0) {
+                const candidateSlice = match[0].slice(0, lastIndex + 1);
+                try {
+                  const parsedSlice = JSON.parse(candidateSlice);
+                  if (Array.isArray(parsedSlice)) return parsedSlice;
+                } catch (e2) {
+                  // give up on this candidate
+                }
+              }
+            }
+          }
+        } catch (err) {
+          // ignore extraction errors
+        }
+
         return null;
       };
 
@@ -451,11 +487,30 @@ export async function regenerateHealthSummary(userId: string): Promise<void> {
           const parsed = tryParseArrayFromString(c);
           if (Array.isArray(parsed) && parsed.length > 0) { foundArr = parsed; break; }
         }
-        if (foundArr) explanations = foundArr;
-        else {
-          // Attempt to pick the first array-valued property as a last-resort fallback
-          const found = Object.values(aiResp).find((v: any) => Array.isArray(v));
-          explanations = Array.isArray(found) ? found : [];
+        if (foundArr) {
+          explanations = foundArr;
+        } else {
+          // --- ADDITIONAL FALLBACK: parse explanations from a stringified JSON array in summary field ---
+          if (typeof aiResp.summary === 'string' && aiResp.summary.trim().startsWith('[')) {
+            try {
+              const parsed = JSON.parse(aiResp.summary.trim());
+              if (Array.isArray(parsed)) {
+                explanations = parsed;
+              } else {
+                // fallback to previous logic
+                const found = Object.values(aiResp).find((v: any) => Array.isArray(v));
+                explanations = Array.isArray(found) ? found : [];
+              }
+            } catch (e) {
+              // fallback to previous logic
+              const found = Object.values(aiResp).find((v: any) => Array.isArray(v));
+              explanations = Array.isArray(found) ? found : [];
+            }
+          } else {
+            // fallback to previous logic
+            const found = Object.values(aiResp).find((v: any) => Array.isArray(v));
+            explanations = Array.isArray(found) ? found : [];
+          }
         }
       }
       // If still empty, create safe defaults
@@ -532,7 +587,7 @@ export async function regenerateHealthSummary(userId: string): Promise<void> {
         aiResult
       });
       const vitalReading: VitalReading = {
-        id: `${userId}_${type}`,
+        id: `${userId}_${vital.documentId}_${type}`,
         userId,
         vitalType: type,
         vitalCategory: category,
@@ -545,16 +600,15 @@ export async function regenerateHealthSummary(userId: string): Promise<void> {
         explanation,
         advice,
         status,
-        createdAt: existing?.createdAt || now,
+        createdAt: now,
         updatedAt: now
       };
       await vitalsCol.updateOne(
-        { userId, vitalType: type } as any,
+        { userId, documentId: vital.documentId, vitalType: type } as any,
         { $set: vitalReading },
         { upsert: true }
       );
-      // Only log vitals storage in vitalsLogger, not healthSummaryLogger
-      vitalsLogger.info('Vital stored', { vitalType: type, userId });
+      vitalsLogger.info('Vital enriched', { vitalType: type, documentId: vital.documentId, userId });
     }
     vitalsLogger.info('All user vitals processed', { userId });
 
@@ -579,7 +633,7 @@ export async function regenerateHealthSummary(userId: string): Promise<void> {
       }
       if (ocrTexts.length > 0) {
         lastDocDate = documents.reduce((acc, doc) => {
-          if (!acc || doc.createdAt > acc) return doc.createdAt;
+          if (!acc || (doc as any).createdAt > acc) return (doc as any).createdAt;
           return acc;
         }, null as Date | null);
       }
@@ -588,12 +642,12 @@ export async function regenerateHealthSummary(userId: string): Promise<void> {
     // If still no OCRs, try per-document fallback
     if (ocrTexts.length === 0) {
       for (const doc of documents) {
-        let ocr = await ocrCol.findOne({ documentId: doc.id, versionId: doc.versionId } as any);
-        if (!ocr) ocr = await ocrCol.findOne({ id: `${doc.id}:${doc.versionId}` } as any);
-        if (!ocr) ocr = await ocrCol.findOne({ documentId: doc.id } as any);
+        let ocr = await ocrCol.findOne({ documentId: (doc as any).id, versionId: (doc as any).versionId } as any);
+        if (!ocr) ocr = await ocrCol.findOne({ id: `${(doc as any).id}:${(doc as any).versionId}` } as any);
+        if (!ocr) ocr = await ocrCol.findOne({ documentId: (doc as any).id } as any);
         // Additional fallback: many importers store the OCR under storageKey or use storageKey as id
-        if (!ocr && (doc.storageKey || doc.storage_key)) {
-          const storageKey = (doc.storageKey || (doc as any).storage_key) as string;
+        if (!ocr && ((doc as any).storageKey || (doc as any).storage_key)) {
+          const storageKey = ((doc as any).storageKey || (doc as any).storage_key) as string;
           try {
             if (storageKey) {
               if (!ocr) ocr = await ocrCol.findOne({ storageKey } as any);
@@ -607,9 +661,9 @@ export async function regenerateHealthSummary(userId: string): Promise<void> {
         if (ocr && ocr.text) {
           ocrTexts.push(ocr.text);
           // Log which doc matched which OCR record for easier debugging
-          healthSummaryLogger.debug('OCR matched for document', { documentId: doc.id, matchedId: ocr.id, storageKey: ocr.storageKey });
-          if (!lastDocDate || doc.createdAt > lastDocDate) {
-            lastDocDate = doc.createdAt;
+          healthSummaryLogger.debug('OCR matched for document', { documentId: (doc as any).id, matchedId: (ocr as any).id, storageKey: (ocr as any).storageKey });
+          if (!lastDocDate || (doc as any).createdAt > lastDocDate) {
+            lastDocDate = (doc as any).createdAt;
           }
         }
       }
@@ -626,14 +680,14 @@ export async function regenerateHealthSummary(userId: string): Promise<void> {
     // Compose documentsData for AI summary prompt
     const documentsData = documents.map((doc: any) => {
       return {
-        id: doc.id,
-        docType: doc.docType,
-        createdAt: doc.createdAt,
-        vitals: Array.isArray(doc.metadata?.vitals) ? doc.metadata.vitals : [],
-        labs: doc.metadata?.labs || [],
-        diagnosis: doc.metadata?.diagnosis || '',
-        medications: doc.metadata?.medications || [],
-        summary: doc.metadata?.summary || ''
+        id: (doc as any).id,
+        docType: (doc as any).docType,
+        createdAt: (doc as any).createdAt,
+        vitals: Array.isArray((doc as any).metadata?.vitals) ? (doc as any).metadata.vitals : [],
+        labs: (doc as any).metadata?.labs || [],
+        diagnosis: (doc as any).metadata?.diagnosis || '',
+        medications: (doc as any).metadata?.medications || [],
+        summary: (doc as any).metadata?.summary || ''
       };
     });
 

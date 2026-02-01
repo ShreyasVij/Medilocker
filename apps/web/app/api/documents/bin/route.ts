@@ -21,17 +21,7 @@ export async function POST(request: NextRequest) {
     if (res.matchedCount === 0) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
-    // If this archive resulted in zero active documents for the owner, trigger regeneration
-    try {
-      const updated = await documentsCol.findOne({ id: docId } as any);
-      const owner = updated?.ownerUserId || updated?.ownerId || undefined;
-      if (owner) {
-        const activeCount = await documentsCol.countDocuments({ ownerUserId: owner, status: 'active' } as any);
-        if (activeCount === 0) {
-          void (await import('@/lib/vitalsProcessor')).regenerateHealthSummary(owner).catch(() => {});
-        }
-      }
-    } catch {}
+    // No summary regeneration on archive/bin action; only on actual delete
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err: any) {
     const message = typeof err?.message === 'string' ? err.message : 'Bin failed';

@@ -117,33 +117,39 @@ export async function callHealthSummaryPrompt(params: { documentsData: any, ocrT
 You are a senior medical analyst. STRICTLY RETURN VALID JSON ONLY (no markdown, no commentary, no extra fields). Follow the JSON schema and rules below exactly.
 
 SCHEMA (required top-level fields)
+
+SCHEMA (required top-level fields)
 {
-  "overall_summary": "<string>",              // 1–2 concise sentences summarizing overall health
-  "overall_feedback": "<string|null>",        // 1 short paragraph (optional)
-  "sections": [                               // REQUIRED: array of section objects for display
+  "overall_summary": "<string>",               1–2 concise sentences summarizing overall health
+  "overall_feedback": "<string|null>",         1 short paragraph (optional)
+   "sections": [                                REQUIRED: array of section objects for display
     { "heading": "<string>", "content": "<string>" }
   ],
-  // Optional structured lab section keys allowed (e.g. "blood_tests") — but ALWAYS include a human-readable "sections" array.
-}
+    Optional structured lab section keys allowed (e.g. "blood_tests") — but ALWAYS include a human-readable "sections" array.
+ }
 
-OUTPUT RULES (must follow)
-1. "sections" MUST be present and cover these headings in this order when data exists: "Current Health Status", "Identified Medical Conditions", "Recent Test Results Summary", "Areas of Concern", "Recommendations for Improvement". If a heading has no info, set its content to "No information available."
-2. Each \`sections[].content\` must be 2–3 complete sentences (roughly 40–120 words), professional and evidence‑based, not a one-line fragment.
-3. Use cautious language: use phrases like "may indicate", "appears to show", "suggests". Do NOT assert diagnoses.
-4. For lab/test results, include structured details under an optional \`blood_tests\` object (you may include numbers/units/status). Also include a concise human-friendly line in the corresponding "Recent Test Results Summary" section.
-5. Base ALL statements only on the provided documents and OCR text. Do not invent facts.
-6. If you derive an interpretation from a specific document, optionally include the document id in parentheses at the end of that sentence (e.g. "(doc: abc123)").
-7. If fields are missing, explicitly state "No information available" for that section.
-8. Keep JSON keys exactly as shown. Return only the JSON object.
 
-EXAMPLE (single-line JSON for clarity — the model must produce a similar structured object):
-{"overall_summary":"Overall Health: Fair — mild anemia and mild kidney impairment with elevated glucose.","overall_feedback":"Your labs show mild anemia and borderline kidney function; follow-up testing and clinician review recommended.","sections":[{"heading":"Current Health Status","content":"The patient demonstrates mild anemia (low hemoglobin) and mildly impaired kidney markers. Vital signs are otherwise stable based on provided documents."},{"heading":"Identified Medical Conditions","content":"Mild iron-deficiency anemia is indicated by hemoglobin 10.7 g/dL. Creatinine 1.7 mg/dL suggests reduced kidney filtration that merits monitoring."},{"heading":"Recent Test Results Summary","content":"Hemoglobin 10.7 g/dL (low); RBC 3.6 million/pL (low); Creatinine 1.7 mg/dL (elevated); Fasting glucose 112 mg/dL (borderline). These values should be correlated with clinical history and repeat testing."},{"heading":"Areas of Concern","content":"Anemia may require iron supplementation and follow-up labs; elevated creatinine warrants assessment of kidney function; borderline hyperglycemia may need lifestyle modification and recheck."},{"heading":"Recommendations for Improvement","content":"Discuss iron therapy adherence and repeat CBC in 6–8 weeks. Evaluate kidney function with repeat creatinine and consider nephrology referral if persistent. Improve diet and exercise and monitor fasting glucose."}],"blood_tests":{"hemoglobin":{"value":10.7,"unit":"g/dL","status":"low","feedback":"Consider iron supplementation and follow-up CBC."},"creatinine":{"value":1.7,"unit":"mg/dL","status":"elevated","feedback":"Repeat and assess kidney function."}}}
+ OUTPUT RULES (must follow)
+ 1. "sections" MUST be present and cover these headings in this order when data exists: "Current Health Status", "Identified Medical Conditions", "Recent Test Results Summary", "Areas of Concern", "Recommendations for Improvement". If a heading has no info, set its content to "No information available."
+ 2. Each "sections[].content" must be 2–3 complete sentences (roughly 40–120 words), professional and evidence‑based, not a one-line fragment.
+ 3. Use cautious language: use phrases like "may indicate", "appears to show", "suggests". Do NOT assert diagnoses.
+ 4. For lab/test results, include structured details under an optional blood_tests object (you may include numbers/units/status). Also include a concise human-friendly line in the corresponding "Recent Test Results Summary" section.
+ 5. In the "Recommendations for Improvement" section, provide concrete, actionable advice for the user (e.g., specific lifestyle changes, monitoring steps, or next actions). Do NOT just say "consult your doctor". Instead, start with a specific action, then add "but discuss with your doctor first" or similar. Example: "Increase daily exercise and reduce sugar intake, but discuss with your doctor first."
+ 6. Base ALL statements only on the provided documents and OCR text. Do not invent facts.
+ 7. If you derive an interpretation from a specific document, optionally include the document id in parentheses at the end of that sentence (e.g. "(doc: abc123)").
+8. If fields are missing, explicitly state "No information available" for that section.
+ 9. Keep JSON keys exactly as shown. Return only the JSON object.
 
-Documents Metadata:
-${JSON.stringify(params.documentsData)}
 
-OCR Text:
-${ocrTextsArray.join('\n\n')}`;
+ EXAMPLE (single-line JSON for clarity — the model must produce a similar structured object):
+ {"overall_summary":"Overall Health: Fair — mild anemia and mild kidney impairment with elevated glucose.","overall_feedback":"Your labs show mild anemia and borderline kidney function; follow-up testing and clinician review recommended.","sections":[{"heading":"Current Health Status","content":"The patient demonstrates mild anemia (low hemoglobin) and mildly impaired kidney markers. Vital signs are otherwise stable based on provided documents."},{"heading":"Identified Medical Conditions","content":"Mild iron-deficiency anemia is indicated by hemoglobin 10.7 g/dL. Creatinine 1.7 mg/dL suggests reduced kidney filtration that merits monitoring."},{"heading":"Recent Test Results Summary","content":"Hemoglobin 10.7 g/dL (low); RBC 3.6 million/pL (low); Creatinine 1.7 mg/dL (elevated); Fasting glucose 112 mg/dL (borderline). These values should be correlated with clinical history and repeat testing."},{"heading":"Areas of Concern","content":"Anemia may require iron supplementation and follow-up labs; elevated creatinine warrants assessment of kidney function; borderline hyperglycemia may need lifestyle modification and recheck."},{"heading":"Recommendations for Improvement","content":"Discuss iron therapy adherence and repeat CBC in 6–8 weeks. Evaluate kidney function with repeat creatinine and consider nephrology referral if persistent. Improve diet and exercise and monitor fasting glucose."}],"blood_tests":{"hemoglobin":{"value":10.7,"unit":"g/dL","status":"low","feedback":"Consider iron supplementation and follow-up CBC."},"creatinine":{"value":1.7,"unit":"mg/dL","status":"elevated","feedback":"Repeat and assess kidney function."}}}
+
+
+ Documents Metadata:
+ ${JSON.stringify(params.documentsData)}
+
+ OCR Text:
+ ${ocrTextsArray.join('\n\n')}`;
 
   const res = await fetch(`${AI_BASE}/openrouter`, {
     method: "POST",
@@ -260,17 +266,36 @@ ${ocrTextsArray.join('\n\n')}`;
 
 // Prompt for per-vital explanations (send only deduplicated vitals)
 export async function callVitalExplainBatchPrompt(vitals: Array<{ label: string; value: string | number; unit: string | null }>) {
-  const prompt = `You are a medical AI assistant. For each vital sign or lab value below, club together any synonymous or duplicate values (e.g., "Red Blood Cell", "RBC", "Erythrocyte" should be one entry). For each vital, provide the following fields in JSON:
-1. "label": the vital name.
-2. "value": the measured value.
-3. "unit": the unit.
-4. "explanation": one concise sentence explaining what this value means for the user's health.
-5. "advice": one concise, actionable tip to improve or maintain this value.
-6. "status": one of the literal strings: "normal", "warning", or "alert" — where "warning" means borderline/needs follow-up and "alert" means clearly abnormal or potentially urgent. ALWAYS include the "status" field for each item.
+  const prompt = `You are a clinical data assistant for a medical application. STRICT REQUIREMENTS:
 
-Return the output as a JSON array, with one object per input vital using the exact keys above.
+- OUTPUT MUST BE valid JSON ONLY (no markdown, no commentary, no surrounding text).
+- Return a JSON ARRAY with the SAME NUMBER OF ITEMS and in the SAME ORDER as the input vitals array.
+- Each array item MUST be an object with exactly these keys (strings must match exactly):
+  1) "label": string — the vital name (copy from input if unchanged).
+  2) "value": string|number — the measured value (copy from input if unchanged).
+  3) "unit": string|null — the unit (copy from input if unchanged).
+  4) "explanation": string — one concise sentence (max ~140 characters) describing what this value likely indicates clinically. Use cautious language (e.g., "may indicate", "suggests"). Do NOT assert diagnoses.
+  5) "advice": string — one concise, actionable recommendation (max ~140 characters). Keep it practical and non-technical (e.g., "Reduce daily salt; recheck BP in 2 weeks"). If no specific advice, use exactly: "No specific advice".
+  6) "status": string — one of the literal values: "normal", "warning", or "alert". Use "warning" for borderline or needs follow-up, "alert" for potentially urgent abnormalities.
 
-Input:
+Rules:
+- Do NOT include any additional keys. Extra keys may be ignored by the caller.
+- Preserve input order: the Nth output object must correspond to the Nth input vital.
+- If you cannot determine an explanation/advice from the data, set:
+    "explanation": "No explanation available (insufficient data)",
+    "advice": "No specific advice",
+    "status": "normal"
+- If status is "alert", include language that the finding is potentially urgent in the explanation and set advice to a short next step (e.g., "Seek urgent clinical evaluation").
+- Keep all text safe and non-alarming unless status=="alert".
+
+EXAMPLE (for clarity; model should follow this structure exactly):
+Input: [{"label":"Hemoglobin","value":10.7,"unit":"g/dL"},{"label":"Systolic BP","value":150,"unit":"mmHg"}]
+Output: [
+  {"label":"Hemoglobin","value":10.7,"unit":"g/dL","explanation":"Low hemoglobin may indicate mild anemia.","advice":"Consider iron-rich diet and repeat CBC in 6–8 weeks.","status":"warning"},
+  {"label":"Systolic BP","value":150,"unit":"mmHg","explanation":"Elevated systolic blood pressure suggests hypertension.","advice":"Monitor BP at home and reduce salt intake; recheck in 1–2 weeks.","status":"alert"}
+]
+
+INPUT_DATA:
 ${JSON.stringify(vitals)}`;
   const res = await fetch(`${AI_BASE}/openrouter`, {
     method: "POST",

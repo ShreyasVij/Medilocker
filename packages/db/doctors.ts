@@ -11,10 +11,12 @@ export interface DoctorProfile {
   specialization?: string; // Doctor's specialty (e.g., Cardiology, Pediatrics)
   
   location?: {
-    hos?: string; // Hospital Name
+    hos?: string; // Hospital/Clinic Address
     city?: string;
     state?: string;
     country?: string;
+    latitude?: number; // GPS latitude for clinic location
+    longitude?: number; // GPS longitude for clinic location
   };
 }
 

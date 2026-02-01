@@ -157,6 +157,24 @@ export async function POST(request: NextRequest) {
     const metaRaw = (formData.get('meta') as string) || '';
     let initialMeta: any = undefined;
     try { if (metaRaw) initialMeta = JSON.parse(metaRaw); } catch {}
+    // Debug: Log initialMeta and raw_text to file and console
+    const fs = await import('fs');
+    const path = await import('path');
+    const logPath = path.join(process.cwd(), 'apps', 'ai', 'logs', 'ocr_upsert_debug.log');
+    function logToFile(msg) {
+      const dir = path.dirname(logPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${msg}\n`);
+    }
+    console.log('[DOCUMENTS][POST] initialMeta:', initialMeta);
+    logToFile(`[POST] initialMeta: ${JSON.stringify(initialMeta)}`);
+    if (initialMeta && typeof initialMeta.raw_text === 'string') {
+      const preview = initialMeta.raw_text.slice(0, 200);
+      console.log('[DOCUMENTS][POST] initialMeta.raw_text:', preview);
+      logToFile(`[POST] initialMeta.raw_text: ${preview}`);
+    }
     const { role, actorId } = await getIdentity();
 
     if (!file && filesMulti.length === 0) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
@@ -210,6 +228,8 @@ export async function POST(request: NextRequest) {
     // Persist metadata in MongoDB (no raw bytes)
     const documentsCol = await getCollection<DocumentDocument>('documents');
     const versionsCol = await getCollection<DocumentVersionDocument>('documentVersions');
+    const ocrCol = await getCollection<any>('ocrOutputs');
+    const vitalsCol = await getCollection<any>('userVitals');
 
     const now = new Date();
     const docMeta: DocumentDocument = {
@@ -246,20 +266,84 @@ export async function POST(request: NextRequest) {
     
     await versionsCol.insertOne(versionMeta as any);
 
-    // Enqueue ingestion job for OCR/classification pipeline
-    const jobsCol = await getCollection<JobDocument>('jobs');
-    const job: JobDocument = {
-      id: randomUUID(),
-      type: 'ingest',
-      status: 'pending',
-      priority: 5,
-      attempts: 0,
-      payload: storageKeys && storageKeys.length > 0
-        ? { documentId: docId, versionId, storageKeys, profileId, ownerUserId: actorId }
-        : { documentId: docId, versionId, storageKey, profileId, ownerUserId: actorId },
-      createdAt: now,
-    } as any;
-    await jobsCol.insertOne(job as any);
+    // --- NEW LOGIC: Upsert OCR and vitals if provided ---
+    let ocrSaved = false;
+    let vitalsSaved = false;
+    if (initialMeta) {
+      // Always persist OCR text from extraction (no re-run, no async job)
+      if (typeof initialMeta.raw_text === 'string' && initialMeta.raw_text.trim().length > 0) {
+        const preview = initialMeta.raw_text.slice(0, 200);
+        console.log('[DOCUMENTS][POST] Upserting OCR output:', {
+          id: `${docId}:${versionId}`,
+          text: preview
+        });
+        logToFile(`[POST] Upserting OCR output: id=${docId}:${versionId}, text=${preview}`);
+        await ocrCol.updateOne(
+          { id: `${docId}:${versionId}` },
+          {
+            $set: {
+              id: `${docId}:${versionId}`,
+              documentId: docId,
+              versionId,
+              storageKey,
+              text: initialMeta.raw_text,
+              engine: 'ai-extract',
+              confidence: 0.9,
+              userId: actorId,
+              createdAt: now,
+              updatedAt: now
+            }
+          },
+          { upsert: true }
+        );
+        ocrSaved = true;
+      } else {
+        console.warn('[DOCUMENTS][POST] No valid raw_text found in initialMeta:', initialMeta);
+        logToFile(`[POST] No valid raw_text found in initialMeta: ${JSON.stringify(initialMeta)}`);
+      }
+      // Save vitals if present (unchanged)
+      if (Array.isArray(initialMeta.vitals) && initialMeta.vitals.length > 0) {
+        for (const vital of initialMeta.vitals) {
+          if (!vital.label || vital.value === undefined || vital.value === null || vital.value === '') continue;
+          await vitalsCol.updateOne(
+            { userId: actorId, documentId: docId, vitalType: vital.label },
+            {
+              $set: {
+                userId: actorId,
+                documentId: docId,
+                vitalType: vital.label,
+                label: vital.label,
+                value: vital.value,
+                unit: vital.unit || null,
+                documentDate: now,
+                source: docType,
+                createdAt: now,
+                updatedAt: now
+              }
+            },
+            { upsert: true }
+          );
+        }
+        vitalsSaved = true;
+      }
+    }
+
+    // Only enqueue ingestion job if OCR or vitals are missing
+    if (!ocrSaved || !vitalsSaved) {
+      const jobsCol = await getCollection<JobDocument>('jobs');
+      const job: JobDocument = {
+        id: randomUUID(),
+        type: 'ingest',
+        status: 'pending',
+        priority: 5,
+        attempts: 0,
+        payload: storageKeys && storageKeys.length > 0
+          ? { documentId: docId, versionId, storageKeys, profileId, ownerUserId: actorId }
+          : { documentId: docId, versionId, storageKey, profileId, ownerUserId: actorId },
+        createdAt: now,
+      } as any;
+      await jobsCol.insertOne(job as any);
+    }
 
     await logAudit(request, {
       actorId: actorId,
@@ -301,7 +385,15 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
   const documentsCol = await getCollection<DocumentDocument>('documents');
+  // Soft delete document
   await documentsCol.updateOne({ id: docId }, { $set: { status: 'deleted', deletedAt: new Date() } });
+
+  // Hard delete related userVitals and ocrOutputs for this document
+  const userVitalsCol = await getCollection('userVitals');
+  const ocrOutputsCol = await getCollection('ocrOutputs');
+  await userVitalsCol.deleteMany({ documentId: docId });
+  await ocrOutputsCol.deleteMany({ documentId: docId });
+
   try {
     const doc = await documentsCol.findOne({ id: docId } as any);
     const owner = doc?.ownerUserId || undefined;

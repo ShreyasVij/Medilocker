@@ -25,16 +25,32 @@ export async function GET() {
       .toArray();
 
     if (storedVitals && storedVitals.length > 0) {
-      const groupedVitals: Record<string, VitalReading[]> = {};
+      // Deduplicate by normalized type only: only keep the latest vital for each type
+      const latestByType = new Map();
       for (const v of storedVitals) {
+        const { type, normalizedLabel } = normalizeVital(v.label || v.vitalType || '');
+        const key = v.vitalType || type || normalizedLabel;
+        if (!key) continue;
+        const existing = latestByType.get(key);
+        // Always ensure advice is present if available
+        const advice = v.advice || (v.aiResult && v.aiResult.advice) || '';
+        if (!existing || (existing.documentDate && v.documentDate > existing.documentDate)) {
+          v.explanation = v.explanation || 'No explanation available.';
+          v.advice = advice;
+          latestByType.set(key, v);
+        }
+      }
+      const dedupedVitals = Array.from(latestByType.values());
+      const groupedVitals: Record<string, VitalReading[]> = {};
+      for (const v of dedupedVitals) {
         const category = v.vitalCategory || "Other";
         if (!groupedVitals[category]) groupedVitals[category] = [];
         groupedVitals[category].push(v);
       }
       return NextResponse.json({
-        vitals: storedVitals,
+        vitals: dedupedVitals,
         groupedVitals,
-        totalCount: storedVitals.length,
+        totalCount: dedupedVitals.length,
       });
     }
 
@@ -114,10 +130,22 @@ export async function GET() {
       }
     }
 
-    // If no normalized vitals, fallback to all raw vitals
+    // If no normalized vitals, fallback to all raw vitals (deduped by canonical key)
     let vitals = Array.from(vitalsMap.values());
     if (vitals.length === 0 && allRawVitals.length > 0) {
-      vitals = allRawVitals;
+      const latestByType = new Map();
+      for (const v of allRawVitals) {
+        const { type, normalizedLabel } = normalizeVital(v.label || v.vitalType || '');
+        const key = v.vitalType || type || normalizedLabel;
+        if (!key) continue;
+        const existing = latestByType.get(key);
+        if (!existing || (existing.documentDate && v.documentDate > existing.documentDate)) {
+          v.explanation = v.explanation || 'No explanation available.';
+          v.advice = v.advice || '';
+          latestByType.set(key, v);
+        }
+      }
+      vitals = Array.from(latestByType.values());
     }
     const groupedVitals: Record<string, any[]> = {};
     vitals.forEach((vital) => {

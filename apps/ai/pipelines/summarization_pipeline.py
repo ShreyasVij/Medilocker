@@ -18,16 +18,9 @@ _openrouter_base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v
 
 # Rotate across multiple free models to avoid rate limiting
 _MODEL_ROTATION: tuple[str, ...] = (
-  # User-requested additions
-  # nemotron models removed due to empty outputs
-  "mistralai/devstral-2512:free",
-  "openai/gpt-oss-20b:free",
-  "openai/gpt-oss-120b:free",
-  "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "google/gemini-2.0-flash-exp:free",
-  "mistralai/mistral-7b-instruct:free",
-  "qwen/qwen3-4b:free",
+  "arcee-ai/trinity-mini:free",
+  "liquid/lfm-2.5-1.2b-instruct:free",
+  "nvidia/nemotron-3-nano-30b-a3b:free",
 )
 _model_cycle = itertools.cycle(_MODEL_ROTATION)
 def _next_model() -> str:

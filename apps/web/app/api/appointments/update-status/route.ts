@@ -1,3 +1,83 @@
+// GET - Allow status update via email link (for Accept/Deny)
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const appointmentId = searchParams.get("appointmentId");
+    const status = searchParams.get("status");
+
+    if (!appointmentId || !status) {
+      return new Response("Missing appointmentId or status", { status: 400 });
+    }
+    if (status !== "approved" && status !== "rejected") {
+      return new Response("Invalid status", { status: 400 });
+    }
+    if (!ObjectId.isValid(appointmentId)) {
+      return new Response("Invalid appointmentId", { status: 400 });
+    }
+
+    const appointments = await getCollection<AppointmentDocument>("appointments");
+    const appointment = await appointments.findOne({ _id: new ObjectId(appointmentId) });
+    if (!appointment) {
+      return new Response("Appointment not found", { status: 404 });
+    }
+    if (appointment.status !== "pending") {
+      return new Response(`Cannot update appointment with status: ${appointment.status}. Only pending appointments can be approved/rejected.`, { status: 400 });
+    }
+
+    const updateData: any = {
+      status,
+      updatedAt: new Date(),
+    };
+    if (status === "approved") {
+      updateData.approvedAt = new Date();
+    } else {
+      updateData.rejectedAt = new Date();
+    }
+    await appointments.updateOne({ _id: new ObjectId(appointmentId) }, { $set: updateData });
+
+    // Send notification email to patient (same as POST logic)
+    let patientEmail: string | null = null;
+    if (appointment.patientEmail) {
+      patientEmail = appointment.patientEmail;
+    } else if (appointment.patientId) {
+      const users = await getCollection<UserDocument>("users");
+      const patient = await users.findOne({ _id: appointment.patientId });
+      patientEmail = patient?.email || null;
+    }
+    if (patientEmail) {
+      try {
+        const doctorName = appointment.doctorName || "Doctor";
+        const emailParams = {
+          patientName: appointment.patientName,
+          doctorName,
+          date: new Date(appointment.date).toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }),
+          time: appointment.appointmentTime,
+        };
+        const emailTemplate = status === "approved"
+          ? getApprovedEmailTemplate(emailParams)
+          : getRejectedEmailTemplate(emailParams);
+        await sendMail({
+          to: patientEmail,
+          subject: emailTemplate.subject,
+          html: emailTemplate.html,
+        });
+      } catch (emailError) {
+        // Don't fail the request if email fails
+      }
+    }
+    return new Response(
+      `<html><body style='font-family:sans-serif;text-align:center;padding:40px;'><h2>Appointment ${status === "approved" ? "Accepted" : "Rejected"}</h2><p>The appointment has been ${status}.</p></body></html>`,
+      { status: 200, headers: { "Content-Type": "text/html" } }
+    );
+  } catch (err) {
+    return new Response("Internal Server Error", { status: 500 });
+  }
+}
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";

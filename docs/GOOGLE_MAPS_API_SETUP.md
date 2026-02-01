@@ -71,11 +71,11 @@ This ensures the key only works on your specified domains.
 
 ```env
 # ✅ Correct
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_api_key_here
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyDa9oCxd6Rmq4E6g18DkO5T8o7TwkO9P_A
 
 # ❌ Wrong (don't do this)
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY='your_api_key_here'  # No quotes!
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="your_api_key_here"  # No quotes!
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY='AIzaSyDa9oCxd6Rmq4E6g18DkO5T8o7TwkO9P_A'  # No quotes!
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="AIzaSyDa9oCxd6Rmq4E6g18DkO5T8o7TwkO9P_A"  # No quotes!
 ```
 
 ---

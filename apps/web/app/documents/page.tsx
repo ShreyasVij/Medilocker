@@ -161,6 +161,7 @@ export default function DocumentsPage() {
         report_date: payload.report_date,
         medications: payload.medications,
         vitals: payload.vitals,
+        raw_text: aiData?.raw_text || '',
       };
       fd.append('meta', JSON.stringify(meta));
 
@@ -875,9 +876,29 @@ export default function DocumentsPage() {
                         <table className="table table-sm">
                           <thead><tr><th>Label</th><th>Value</th><th>Unit</th></tr></thead>
                           <tbody>
-                            {viewerDoc.vitals.map((v:any, i:number)=> (
-                              <tr key={i}><td>{v.label || ''}</td><td>{String(v.value ?? '')}</td><td>{v.unit || '-'}</td></tr>
-                            ))}
+                            {/* Improved deduplication: by label+value+unit, merge advice/explanation if present */}
+                            {(() => {
+                              const seen = new Map();
+                              // Iterate in reverse to keep latest
+                              [...viewerDoc.vitals].reverse().forEach((v:any) => {
+                                const key = [
+                                  (v.label || '').toLowerCase().trim(),
+                                  String(v.value ?? '').toLowerCase().trim(),
+                                  (v.unit || '').toLowerCase().trim()
+                                ].join('|');
+                                if (key && !seen.has(key)) {
+                                  seen.set(key, { ...v });
+                                } else if (key && seen.has(key)) {
+                                  // Merge advice/explanation if missing in the kept one
+                                  const existing = seen.get(key);
+                                  if (!existing.advice && v.advice) existing.advice = v.advice;
+                                  if (!existing.explanation && v.explanation) existing.explanation = v.explanation;
+                                }
+                              });
+                              return Array.from(seen.values()).reverse().map((v:any, i:number) => (
+                                <tr key={i}><td>{v.label || ''}</td><td>{String(v.value ?? '')}</td><td>{v.unit || '-'}</td></tr>
+                              ));
+                            })()}
                           </tbody>
                         </table>
                       </div>

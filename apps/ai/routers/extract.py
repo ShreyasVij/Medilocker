@@ -43,8 +43,26 @@ async def extract(payload: ExtractRequest, _auth=Depends(verify_service_token)):
     except Exception as exc:  # pragma: no cover - defensive
         raise HTTPException(status_code=400, detail="Invalid base64 payload") from exc
 
-    # OCR step
-    ocr_result = await extract_text(file_name=payload.file_name, content_bytes=content_bytes)
+    # --- Ensure file type/extension is always set for OCR ---
+    file_name = payload.file_name
+    # If file_name is missing extension, try to infer or default to .pdf
+    import os
+    name, ext = os.path.splitext(file_name)
+    if not ext:
+        # Try to detect from content_bytes (PDF magic number)
+        if content_bytes[:4] == b'%PDF':
+            file_name = file_name + '.pdf'
+        else:
+            # Default to .jpg for images, else .pdf
+            if content_bytes[:3] == b'\xff\xd8\xff':
+                file_name = file_name + '.jpg'
+            elif content_bytes[:8] == b'\x89PNG\r\n\x1a\n':
+                file_name = file_name + '.png'
+            else:
+                file_name = file_name + '.pdf'
+
+    # OCR step (now always has extension)
+    ocr_result = await extract_text(file_name=file_name, content_bytes=content_bytes)
     try:
         log_openrouter_event('extract_ocr_output', f"file={payload.file_name} text_len={len(ocr_result.get('text') or '')} engine={ocr_result.get('engine')} conf={ocr_result.get('confidence')}")
     except Exception:
@@ -79,7 +97,7 @@ async def extract(payload: ExtractRequest, _auth=Depends(verify_service_token)):
         "text": ocr_result.get("text") or "",
         "createdAt": datetime.datetime.utcnow(),
     }
-    
+
     # Add optional fields only if they exist and are not None
     if ocr_result.get("engine"):
         ocr_doc["engine"] = str(ocr_result.get("engine"))
@@ -89,9 +107,12 @@ async def extract(payload: ExtractRequest, _auth=Depends(verify_service_token)):
             ocr_doc["confidence"] = float(ocr_result.get("confidence"))
         except (ValueError, TypeError):
             pass  # Skip if can't convert to float
-    
+
+    # Always log the ocr_doc before upserting for debugging
+    logger.info(f"[DEBUG] Upserting OCR output: {ocr_doc}")
     try:
-        collection("ocrOutputs").update_one({"id": ocr_doc["id"]}, {"$set": ocr_doc}, upsert=True)
+        result = collection("ocrOutputs").update_one({"id": ocr_doc["id"]}, {"$set": ocr_doc}, upsert=True)
+        logger.info(f"[DEBUG] Upsert result: matched={result.matched_count} modified={result.modified_count} upserted_id={result.upserted_id} text_len={len(ocr_doc['text'])}")
     except Exception as e:
         logger.error(f"Failed to upsert OCR output: {e}")
         # Log the document structure for debugging
