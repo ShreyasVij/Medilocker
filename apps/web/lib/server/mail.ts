@@ -6,30 +6,28 @@ export async function sendMail(params: {
   html: string;
   fromName?: string | null;
 }) {
-  // 🔍 TEMP DEBUG (REMOVE AFTER IT WORKS)
-  console.log("SMTP USER:", process.env.GMAIL_USER);
-  console.log(
-    "SMTP PASS EXISTS:",
-    !!process.env.GMAIL_PASS,
-    "LENGTH:",
-    process.env.GMAIL_PASS?.length
-  );
-
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
-    throw new Error("Missing GMAIL_USER or GMAIL_PASS in env");
+  if (
+    !process.env.SMTP_HOST ||
+    !process.env.SMTP_PORT ||
+    !process.env.SMTP_USER ||
+    !process.env.SMTP_PASS
+  ) {
+    throw new Error("Missing SMTP configuration in env");
   }
 
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT, 10),
+    secure: process.env.SMTP_PORT === "465", // true for 465, false for other ports
     auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_PASS
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
     }
   });
 
   const fromHeader = params.fromName
-    ? `"${params.fromName} via MediLocker" <${process.env.GMAIL_USER}>`
-    : `"MediLocker" <${process.env.GMAIL_USER}>`;
+    ? `"${params.fromName} via MediLocker" <${process.env.SMTP_USER}>`
+    : `"MediLocker" <${process.env.SMTP_USER}>`;
 
   await transporter.sendMail({
     from: fromHeader,
