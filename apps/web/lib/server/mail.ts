@@ -4,6 +4,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 // NOTE: You must verify a domain with Resend to use a custom `from` address.
 // For testing, Resend allows sending from a default address like "onboarding@resend.dev".
+// For testing, Resend allows sending from a default address like "onboarding@resend.dev".
 // Replace "onboarding@resend.dev" with your verified domain email in production.
 const fromAddress = process.env.MAIL_FROM || "onboarding@resend.dev";
 
