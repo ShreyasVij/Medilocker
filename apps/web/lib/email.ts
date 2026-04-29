@@ -26,6 +26,10 @@ export async function sendEmail({
   replyTo,
 }: SendEmailParams) {
   try {
+    console.log("Attempting to send mail via Resend...");
+    console.log("RESEND_FROM_EMAIL env var:", process.env.RESEND_FROM_EMAIL);
+    console.log("Using email config:", emailConfig);
+
     const emails = Array.isArray(to) ? to : [to];
 
     const payload: any = {
@@ -39,11 +43,14 @@ export async function sendEmail({
       payload.reply_to = replyTo;
     }
 
+    console.log("Sending payload to Resend:", { from: payload.from, to: payload.to, subject: payload.subject });
+
     const result = await resend.emails.send(payload);
 
+    console.log("✅ Successfully sent mail via Resend. Message ID:", result.data?.id);
     return { success: true, messageId: result.data?.id };
   } catch (error) {
-    console.error(`Failed to send ${template} email:`, error);
+    console.error("❌ Failed to send mail via Resend:", error);
     return { success: false, error: String(error) };
   }
 }
