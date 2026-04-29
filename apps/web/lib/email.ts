@@ -25,7 +25,14 @@ export async function sendEmail({
   data = {},
   replyTo,
 }: SendEmailParams) {
-  console.log("Attempting to send mail via Resend...");
+  console.log("--- New Email Sending Attempt ---");
+  console.log(`Timestamp: ${new Date().toISOString()}`);
+
+  // Mask the API key for security, showing only the last 4 characters
+  const apiKey = process.env.RESEND_API_KEY;
+  const maskedApiKey = apiKey ? `...${apiKey.slice(-4)}` : "Not set";
+  console.log(`Using Resend API Key (masked): ${maskedApiKey}`);
+
   console.log("RESEND_FROM_EMAIL env var:", process.env.RESEND_FROM_EMAIL);
   console.log("Using email config:", emailConfig);
 
@@ -48,10 +55,12 @@ export async function sendEmail({
 
   if (error) {
     console.error("❌ Failed to send mail via Resend:", error);
+    console.log("--- End of Email Sending Attempt ---");
     return { success: false, error: error.message };
   }
 
   console.log("✅ Successfully sent mail via Resend. Message ID:", resultData?.id);
+  console.log("--- End of Email Sending Attempt ---");
   return { success: true, messageId: resultData?.id };
 }
 
