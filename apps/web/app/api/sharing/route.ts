@@ -6,6 +6,7 @@ import type { ProfileDocument } from '@/../../packages/db/profiles';
 import { logAudit } from '@/lib/audit';
 import { hasPermission } from '@/../../packages/auth/rbac';
 import { getIdentity } from '@/lib/auth';
+import { sendDocumentSharedEmail } from '@/lib/emailHooks';
 
 export async function GET(request: NextRequest) {
   const profileId = request.nextUrl.searchParams.get('profileId');
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const sharesCol = await getCollection<ShareDocument>('shares');
   const body = await request.json();
-  const { role, actorId } = await getIdentity();
+  const { role, actorId, session } = await getIdentity();
   if (!hasPermission(role, 'share:create')) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
@@ -49,6 +50,22 @@ export async function POST(request: NextRequest) {
     createdAt: now,
   };
   await sharesCol.insertOne(doc as any);
+
+  if (doc.grantedToEmail) {
+    try {
+      await sendDocumentSharedEmail({
+        recipientEmail: doc.grantedToEmail,
+        recipientName: doc.grantedToName,
+        sharedByName: (session as any)?.user?.name || (session as any)?.user?.email || actorId,
+        documentName: `Shared profile ${doc.profileId}`,
+        documentType: doc.granteeType,
+        shareToken: doc.id,
+      });
+    } catch (error) {
+      console.error('Failed to send share email:', error);
+    }
+  }
+
   await logAudit(request, {
     actorId,
     action: 'share.create',

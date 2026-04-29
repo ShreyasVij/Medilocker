@@ -1,6 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { getCollection } from "@/lib/db";
+import { sendWelcomeEmail } from "@/lib/emailHooks";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -44,6 +45,14 @@ export const authOptions: NextAuthOptions = {
           });
 
           dbUser = { _id: result.insertedId } as any;
+
+          if ((user as any).email) {
+            try {
+              await sendWelcomeEmail((user as any).email, (user as any).name);
+            } catch (error) {
+              console.error("Failed to send welcome email:", error);
+            }
+          }
         } else {
           await users.updateOne(
             { _id: dbUser._id },

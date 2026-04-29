@@ -41,6 +41,11 @@ services:
           property: defaultHostname
       - key: NEXTAUTH_SECRET
         generateValue: true
+      # Email service (Resend)
+      - key: RESEND_API_KEY
+        value: "CHANGEME_RESEND_API_KEY"
+      - key: RESEND_FROM_EMAIL
+        value: "noreply@medora.buzz"
       # Public keys
       - key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
         value: "CHANGEME_GOOGLE_MAPS_API_KEY"
