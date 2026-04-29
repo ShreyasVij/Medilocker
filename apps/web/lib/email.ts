@@ -3,9 +3,9 @@ import { Resend } from 'resend';
 // Initialize Resend with your API key
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export const emailConfig = {
-  fromEmail: process.env.RESEND_FROM_EMAIL || 'noreply@medora.buzz',
-  fromName: 'MediLocker',
+const emailConfig = {
+  fromName: process.env.RESEND_FROM_NAME || "Medora",
+  fromEmail: process.env.RESEND_FROM_EMAIL || "noreply@medora.buzz",
 };
 
 export type EmailTemplate = 'welcome' | 'share-document' | 'appointment-reminder';
