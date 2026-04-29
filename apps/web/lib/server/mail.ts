@@ -2,11 +2,9 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// NOTE: You must verify a domain with Resend to use a custom `from` address.
-// For testing, Resend allows sending from a default address like "onboarding@resend.dev".
-// For testing, Resend allows sending from a default address like "onboarding@resend.dev".
-// Replace "onboarding@resend.dev" with your verified domain email in production.
-const fromAddress = process.env.MAIL_FROM || "onboarding@resend.dev";
+// NOTE: Domain verified with Resend (medora.buzz)
+// Uses RESEND_FROM_EMAIL from environment variables
+const fromAddress = process.env.RESEND_FROM_EMAIL || "noreply@medora.buzz";
 
 export async function sendMail(params: {
   to: string;
