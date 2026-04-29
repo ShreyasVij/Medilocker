@@ -47,6 +47,7 @@ export const authOptions: NextAuthOptions = {
           dbUser = { _id: result.insertedId } as any;
 
           if ((user as any).email) {
+            console.log(`New user created with email: ${(user as any).email}. Attempting to send welcome email.`);
             try {
               await sendWelcomeEmail((user as any).email, (user as any).name);
             } catch (error) {
