@@ -28,7 +28,7 @@ export async function sendEmail({
   try {
     const emails = Array.isArray(to) ? to : [to];
 
-    const payload: Parameters<typeof resend.emails.send>[0] = {
+    const payload: any = {
       from: `${emailConfig.fromName} <${emailConfig.fromEmail}>`,
       to: emails,
       subject,
@@ -36,7 +36,7 @@ export async function sendEmail({
     };
 
     if (replyTo) {
-      payload.replyTo = replyTo;
+      payload.reply_to = replyTo;
     }
 
     const result = await resend.emails.send(payload);
