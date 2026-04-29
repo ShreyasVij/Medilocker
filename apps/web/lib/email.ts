@@ -25,34 +25,34 @@ export async function sendEmail({
   data = {},
   replyTo,
 }: SendEmailParams) {
-  try {
-    console.log("Attempting to send mail via Resend...");
-    console.log("RESEND_FROM_EMAIL env var:", process.env.RESEND_FROM_EMAIL);
-    console.log("Using email config:", emailConfig);
+  console.log("Attempting to send mail via Resend...");
+  console.log("RESEND_FROM_EMAIL env var:", process.env.RESEND_FROM_EMAIL);
+  console.log("Using email config:", emailConfig);
 
-    const emails = Array.isArray(to) ? to : [to];
+  const emails = Array.isArray(to) ? to : [to];
 
-    const payload: any = {
-      from: `${emailConfig.fromName} <${emailConfig.fromEmail}>`,
-      to: emails,
-      subject,
-      html: getEmailTemplate(template, data),
-    };
+  const payload: any = {
+    from: `${emailConfig.fromName} <${emailConfig.fromEmail}>`,
+    to: emails,
+    subject,
+    html: getEmailTemplate(template, data),
+  };
 
-    if (replyTo) {
-      payload.reply_to = replyTo;
-    }
-
-    console.log("Sending payload to Resend:", { from: payload.from, to: payload.to, subject: payload.subject });
-
-    const result = await resend.emails.send(payload);
-
-    console.log("✅ Successfully sent mail via Resend. Message ID:", result.data?.id);
-    return { success: true, messageId: result.data?.id };
-  } catch (error) {
-    console.error("❌ Failed to send mail via Resend:", error);
-    return { success: false, error: String(error) };
+  if (replyTo) {
+    payload.replyTo = replyTo;
   }
+
+  console.log("Sending payload to Resend:", { from: payload.from, to: payload.to, subject: payload.subject });
+
+  const { data: resultData, error } = await resend.emails.send(payload);
+
+  if (error) {
+    console.error("❌ Failed to send mail via Resend:", error);
+    return { success: false, error: error.message };
+  }
+
+  console.log("✅ Successfully sent mail via Resend. Message ID:", resultData?.id);
+  return { success: true, messageId: resultData?.id };
 }
 
 // Get HTML template for each email type
