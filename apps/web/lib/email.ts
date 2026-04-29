@@ -27,14 +27,19 @@ export async function sendEmail({
 }: SendEmailParams) {
   try {
     const emails = Array.isArray(to) ? to : [to];
-    
-    const result = await resend.emails.send({
+
+    const payload: Parameters<typeof resend.emails.send>[0] = {
       from: `${emailConfig.fromName} <${emailConfig.fromEmail}>`,
       to: emails,
       subject,
       html: getEmailTemplate(template, data),
-      replyTo: replyTo || emailConfig.fromEmail,
-    });
+    };
+
+    if (replyTo) {
+      payload.replyTo = replyTo;
+    }
+
+    const result = await resend.emails.send(payload);
 
     return { success: true, messageId: result.data?.id };
   } catch (error) {
