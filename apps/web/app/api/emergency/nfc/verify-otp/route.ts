@@ -214,7 +214,9 @@ export async function POST(req: NextRequest) {
         profileId: otpSession.profileId,
         scope: 'full',
       },
-      process.env.NFC_ACCESS_TOKEN_SECRET || 'dev-secret-key',
+      process.env.NFC_ACCESS_TOKEN_SECRET || (() => {
+        throw new Error('NFC_ACCESS_TOKEN_SECRET environment variable is not set');
+      })(),
       { expiresIn: '30m' }
     );
 

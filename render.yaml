@@ -42,6 +42,9 @@ services:
           property: defaultHostname
       - key: NEXTAUTH_SECRET
         generateValue: true
+      # NFC Emergency Access
+      - key: NFC_ACCESS_TOKEN_SECRET
+        generateValue: true
       # Email service (Resend)
       - key: RESEND_API_KEY
         value: "CHANGEME_RESEND_API_KEY"

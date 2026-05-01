@@ -97,7 +97,9 @@ export async function GET(
     let accessGrantedReason = 'otp_verified';
 
     try {
-      accessTokenPayload = jwt.verify(accessToken, process.env.NFC_ACCESS_TOKEN_SECRET || 'dev-secret-key') as AccessTokenPayload;
+      accessTokenPayload = jwt.verify(accessToken, process.env.NFC_ACCESS_TOKEN_SECRET || (() => {
+        throw new Error('NFC_ACCESS_TOKEN_SECRET environment variable is not set');
+      })()) as AccessTokenPayload;
 
       // Verify token matches
       if (accessTokenPayload.tokenId !== nfcToken.id) {

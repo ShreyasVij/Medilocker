@@ -179,6 +179,7 @@ export async function getLogsForUser(
   limit: number = 50,
   offset: number = 0,
   filters?: {
+    profileId?: string;
     actionFilter?: NfcAccessAction;
     anomalyOnly?: boolean;
     dateFrom?: Date;
@@ -188,6 +189,10 @@ export async function getLogsForUser(
   const collection = await getEmergencyNfcAccessLogsCollection();
 
   const query: any = { userId };
+
+  if (filters?.profileId) {
+    query.profileId = filters.profileId;
+  }
 
   if (filters?.actionFilter) {
     query.action = filters.actionFilter;

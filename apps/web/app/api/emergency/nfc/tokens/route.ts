@@ -51,11 +51,19 @@ export async function GET(req: NextRequest) {
     }
 
     // Verify user has access to this profile
-    const profilesCollection = db.collection<ProfileDocument>('profiles');
-    const profile = await profilesCollection.findOne({
-      id: profileId,
-      userId: user._id.toString(),
-    });
+    let profile: ProfileDocument | { id: string } | null = null;
+
+    if (profileId === user._id.toString()) {
+      // Self profile
+      profile = { id: profileId };
+    } else {
+      // Check if it's a dependent profile
+      const profilesCollection = db.collection<ProfileDocument>('profiles');
+      profile = await profilesCollection.findOne({
+        id: profileId,
+        userId: user._id.toString(),
+      });
+    }
 
     if (!profile) {
       return NextResponse.json(
