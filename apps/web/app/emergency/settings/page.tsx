@@ -94,7 +94,7 @@ export default function EmergencySettingsPage() {
             🔲 QR Code
           </button>
           <Link
-            href="/app/emergency/nfc"
+            href="/emergency/nfc"
             className="px-4 py-3 font-semibold text-gray-600 hover:text-gray-900 transition"
           >
             📱 NFC Card
