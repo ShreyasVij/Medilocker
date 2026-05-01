@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import EmergencyTokenGenerator from '@/components/EmergencyTokenGenerator';
 import { Shield } from 'lucide-react';
 
@@ -86,7 +87,20 @@ export default function EmergencySettingsPage() {
             Manage emergency access tokens for your health information
           </p>
         </div>
-        
+
+        {/* Tabs Navigation */}
+        <div className="flex gap-4 mb-8 border-b border-gray-200">
+          <button className="px-4 py-3 font-semibold text-blue-600 border-b-2 border-blue-600">
+            🔲 QR Code
+          </button>
+          <Link
+            href="/app/emergency/nfc"
+            className="px-4 py-3 font-semibold text-gray-600 hover:text-gray-900 transition"
+          >
+            📱 NFC Card
+          </Link>
+        </div>
+
         {/* Emergency Token Generator */}
         <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
           <EmergencyTokenGenerator profileId={profileId} />

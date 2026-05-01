@@ -6,6 +6,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import EmergencyNfcCard from '@/components/emergency/EmergencyNfcCard';
@@ -155,7 +156,7 @@ export default function EmergencyNfcPage() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">🚨 Emergency NFC Access</h1>
               <p className="text-gray-600 mt-2">
@@ -167,6 +168,19 @@ export default function EmergencyNfcPage() {
               className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
             >
               + Create NFC Card
+            </button>
+          </div>
+
+          {/* Tabs Navigation */}
+          <div className="flex gap-4 border-b border-gray-200">
+            <Link
+              href="/app/emergency/settings"
+              className="px-4 py-3 font-semibold text-gray-600 hover:text-gray-900 transition"
+            >
+              🔲 QR Code
+            </Link>
+            <button className="px-4 py-3 font-semibold text-blue-600 border-b-2 border-blue-600">
+              📱 NFC Card
             </button>
           </div>
         </div>
