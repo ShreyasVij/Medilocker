@@ -227,8 +227,18 @@ export async function POST(req: NextRequest) {
     // Parse device info
     const deviceInfo = parseUserAgent(userAgent);
 
-    // Get geolocation
-    const geoLocation = await getGeolocationFromIp(ip);
+    // Get geolocation with timeout (non-blocking if fails)
+    let geoLocation = null;
+    try {
+      const geoPromise = getGeolocationFromIp(ip);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Geolocation timeout')), 5000)
+      );
+      geoLocation = await Promise.race([geoPromise, timeoutPromise]);
+    } catch (err) {
+      console.warn('Geolocation lookup failed, continuing without it:', err);
+      geoLocation = null;
+    }
 
     // Create access log
     await createAccessLog(
