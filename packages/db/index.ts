@@ -30,6 +30,9 @@ export * from './userVitals';
 export * from './userHealthSummary';
 export * from './emergencyTokens';
 export * from './emergencyAudit';
+export * from './emergencyNfcTokens';
+export * from './emergencyNfcAccessLogs';
+export * from './emergencyNfcOtpSessions';
 
 // Re-export utility functions
 export * from './indexes';
