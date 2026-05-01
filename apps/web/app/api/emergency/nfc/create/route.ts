@@ -104,11 +104,27 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify user has access to this profile
-    const profilesCollection = db.collection<ProfileDocument>('profiles');
-    const profile = await profilesCollection.findOne({
-      id: profileId,
-      userId: user._id.toString(),
-    });
+    // Handle two cases: self-profile (profileId === user._id) or dependent profile in collection
+    let profile: ProfileDocument | { id: string; displayName: string } | null = null;
+
+    if (profileId === user._id.toString()) {
+      // Self profile - construct from user document
+      const usersCollection = db.collection<UserDocument>('users');
+      const userDoc = await usersCollection.findOne({ _id: user._id });
+      if (userDoc) {
+        profile = {
+          id: user._id.toString(),
+          displayName: userDoc.name || 'User',
+        };
+      }
+    } else {
+      // Check if it's a dependent profile in the profiles collection
+      const profilesCollection = db.collection<ProfileDocument>('profiles');
+      profile = await profilesCollection.findOne({
+        id: profileId,
+        userId: user._id.toString(),
+      });
+    }
 
     if (!profile) {
       return NextResponse.json(
