@@ -6,20 +6,21 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
 import {
   findNfcTokenByHash,
   updateTokenAccess,
   createAccessLog,
-  hashToken,
 } from '@/../../packages/db';
 import { getDbClient } from '@/lib/db';
 import { nfcPublicAccessLimiter } from '@/lib/rateLimiter';
 import { filterToPublicProfile, getAccessedFields } from '@/lib/emergencyNfcFilters';
-import { parseUserAgent } from '@/lib/nfcGenerator';
+import { parseUserAgent, hashToken } from '@/lib/nfcGenerator';
 import { getGeolocationFromIp } from '@/lib/geolocation';
 import { detectAnomalies } from '@/lib/anomalyDetector';
 import { sendNfcAccessNotificationEmail } from '@/lib/emailHooks';
 import type { ProfileDocument } from '@/../../packages/db/profiles';
+import type { UserDocument } from '@/../../packages/db/users';
 
 function getClientInfo(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0] ||
@@ -31,12 +32,12 @@ function getClientInfo(req: NextRequest) {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   const startTime = Date.now();
   try {
     const { ip, userAgent } = getClientInfo(req);
-    const token = params.token;
+    const { token } = await params;
 
     // Rate limiting per IP
     if (!nfcPublicAccessLimiter.isAllowed(ip)) {
@@ -117,6 +118,10 @@ export async function GET(
       );
     }
 
+    // Get user email for notifications
+    const usersCollection = db.collection<UserDocument>('users');
+    const user = await usersCollection.findOne({ _id: new ObjectId(nfcToken.userId) });
+
     // Get user vitals and health summary for enrichment
     const userVitals = await db.collection('userVitals').findOne({
       userId: profile.userId,
@@ -174,7 +179,6 @@ export async function GET(
         deviceBrowser: deviceInfo.browser,
         deviceName: deviceInfo.deviceName,
         geoLocation,
-        dataAccessedFields: getAccessedFields(publicProfile),
         flaggedAsAnomalous: anomaly.flagged,
         anomalyReasons: anomaly.reasons,
         anomalySeverity: anomaly.severity,
@@ -185,10 +189,10 @@ export async function GET(
     // Send patient notification if anomaly or first access
     if (anomaly.flagged || recentLogs.length === 0) {
       try {
-        if (profile?.email) {
+        if (user?.email) {
           await sendNfcAccessNotificationEmail({
-            to: profile.email,
-            patientName: profile.displayName || profile.firstName,
+            to: user.email,
+            patientName: profile.displayName,
             dataAccessLevel: 'public',
             accessTime: new Date(),
           });

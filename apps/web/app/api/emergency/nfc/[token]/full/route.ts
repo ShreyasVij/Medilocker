@@ -11,11 +11,10 @@ import {
   findOtpSession,
   findPreAuthDoctorForToken,
   createAccessLog,
-  hashToken,
 } from '@/../../packages/db';
 import { getDbClient } from '@/lib/db';
 import { filterToFullProfile } from '@/lib/emergencyNfcFilters';
-import { parseUserAgent } from '@/lib/nfcGenerator';
+import { parseUserAgent, hashToken } from '@/lib/nfcGenerator';
 import { getGeolocationFromIp } from '@/lib/geolocation';
 import type { ProfileDocument } from '@/../../packages/db/profiles';
 
@@ -39,11 +38,11 @@ interface AccessTokenPayload {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   try {
     const { ip, userAgent } = getClientInfo(req);
-    const token = params.token;
+    const { token } = await params;
 
     // Get access token from query or bearer header
     const { searchParams } = new URL(req.url);

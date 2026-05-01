@@ -5,17 +5,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
 import {
   findNfcTokenByHash,
   createOtpSession,
   incrementOtpRequest,
   getActiveOtpForToken,
-  hashToken,
   createAccessLog,
 } from '@/../../packages/db';
 import { getDbClient } from '@/lib/db';
 import { nfcOtpRequestLimiter } from '@/lib/rateLimiter';
-import { generateOtpCode, createOtpSession as createOtpData, parseUserAgent } from '@/lib/nfcGenerator';
+import { generateOtpCode, createOtpSession as createOtpData, parseUserAgent, hashToken } from '@/lib/nfcGenerator';
 import { getGeolocationFromIp } from '@/lib/geolocation';
 import { sendNfcOtpEmail } from '@/lib/emailHooks';
 import type { ProfileDocument } from '@/../../packages/db/profiles';
@@ -150,16 +150,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Use profile email, then user email, or fallback (in order of preference)
+    // Get the NFC token's user (patient) to get their email
+    const usersCollection = db.collection('users');
+    const patientUser = await usersCollection.findOne({ _id: new ObjectId(nfcToken.userId) });
+
+    // Use override email, then patient user email, or fallback
     const patientEmailAddress = nfcToken.otpSendTo ||
-      patientProfile.emergencyData?.email ||
-      patientProfile.email ||
+      patientUser?.email ||
       null;
 
     if (!patientEmailAddress) {
       return NextResponse.json(
         {
-          error: 'Patient email address not found on profile',
+          error: 'Patient email address not found',
           code: 'NO_EMAIL_ADDRESS',
         },
         { status: 400 }
@@ -228,7 +231,7 @@ export async function POST(req: NextRequest) {
     // Send OTP email to patient
     const emailSent = await sendNfcOtpEmail({
       to: patientEmailAddress,
-      patientName: patientProfile.displayName || patientProfile.firstName,
+      patientName: patientProfile.displayName,
       otpCode: otpCode,
       responderInfo: {
         name: responderName,

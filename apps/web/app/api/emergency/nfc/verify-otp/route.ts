@@ -5,6 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
 import jwt from 'jsonwebtoken';
 import {
   findOtpSession,
@@ -16,15 +17,14 @@ import {
   incrementOtpVerified,
   createAccessLog,
   countRecentFailedAttempts,
-  hashToken,
 } from '@/../../packages/db';
 import { getDbClient } from '@/lib/db';
 import { nfcOtpVerificationLimiter } from '@/lib/rateLimiter';
-import { verifyOtp } from '@/lib/nfcGenerator';
-import { parseUserAgent } from '@/lib/nfcGenerator';
+import { verifyOtp, parseUserAgent, hashToken } from '@/lib/nfcGenerator';
 import { getGeolocationFromIp } from '@/lib/geolocation';
 import { sendNfcAccessNotificationEmail } from '@/lib/emailHooks';
 import type { ProfileDocument } from '@/../../packages/db/profiles';
+import type { UserDocument } from '@/../../packages/db/users';
 
 interface RequestBody {
   sessionId: string;
@@ -260,16 +260,20 @@ export async function POST(req: NextRequest) {
 
     // Send patient notification about full access grant
     try {
-      // Get patient profile for email
+      // Get patient user email from OTP session
       const db = await getDbClient();
-      const patientProfile = await db
-        .collection<ProfileDocument>('profiles')
-        .findOne({ id: otpSession.profileId });
+      const patientUser = await db
+        .collection<UserDocument>('users')
+        .findOne({ _id: new ObjectId(otpSession.userId) });
 
-      if (patientProfile?.email) {
+      if (patientUser?.email) {
+        const patientProfile = await db
+          .collection<ProfileDocument>('profiles')
+          .findOne({ id: otpSession.profileId });
+
         await sendNfcAccessNotificationEmail({
-          to: patientProfile.email,
-          patientName: patientProfile.displayName || patientProfile.firstName,
+          to: patientUser.email,
+          patientName: patientProfile?.displayName || 'Patient',
           responderInfo: otpSession.requestContext
             ? {
                 name: otpSession.requestContext.responderName,

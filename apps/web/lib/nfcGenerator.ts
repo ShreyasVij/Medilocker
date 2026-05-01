@@ -54,7 +54,6 @@ export async function generateQrCode(url: string): Promise<string> {
     const qrCodeDataUrl = await QRCode.toDataURL(url, {
       errorCorrectionLevel: 'H',
       type: 'image/png',
-      quality: 0.95,
       margin: 2,
       width: 300, // 300x300 pixels
       color: {

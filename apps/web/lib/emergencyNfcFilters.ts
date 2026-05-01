@@ -56,7 +56,7 @@ export interface PublicEmergencyProfile {
   doctorNotes?: string;
 }
 
-export interface FullEmergencyProfile extends PublicEmergencyProfile {
+export interface FullEmergencyProfile extends Omit<PublicEmergencyProfile, 'medications' | 'allergies' | 'insurance' | 'vaccinations' | 'doctorNotes'> {
   medicalHistory: {
     recentDiagnoses: Array<{
       diagnosis: string;

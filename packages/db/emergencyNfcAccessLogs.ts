@@ -107,11 +107,6 @@ export const emergencyNfcAccessLogsIndexes: IndexSpec[] = [
   { key: { ip: 1, timestamp: -1 }, name: 'idx_ip_access_pattern' },
   // TTL Index: Auto-delete logs after 1 year (compliance)
   { key: { createdAt: 1 }, expireAfterSeconds: 31536000, name: 'idx_ttl_1year' },
-  // Geospatial index
-  {
-    key: { 'geoLocation.latitude': '2d', 'geoLocation.longitude': '2d' },
-    name: 'idx_geo_2d',
-  },
 ];
 
 export async function createAccessLog(
