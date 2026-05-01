@@ -43,6 +43,7 @@ export default function EmergencyQRPage() {
   const [loading, setLoading] = useState(true);
   const [notificationSent, setNotificationSent] = useState(false);
   const [userLocation, setUserLocation] = useState<{lat: number; lon: number} | null>(null);
+  const [locationResolved, setLocationResolved] = useState(false);
   
   useEffect(() => {
     // Get user location
@@ -53,21 +54,24 @@ export default function EmergencyQRPage() {
             lat: position.coords.latitude,
             lon: position.coords.longitude,
           });
+          setLocationResolved(true);
         },
-        (err) => console.log('Location error:', err),
+        (err) => {
+          console.log('Location error:', err);
+          setLocationResolved(true);
+        },
         { timeout: 5000 }
       );
+      return;
     }
+    setLocationResolved(true);
   }, []);
   
   useEffect(() => {
-    if (token && userLocation) {
-      fetchEmergencyData();
-    } else if (token && !navigator.geolocation) {
-      // Fetch without location if geolocation not available
+    if (token && locationResolved) {
       fetchEmergencyData();
     }
-  }, [token, userLocation]);
+  }, [token, locationResolved]);
   
   const fetchEmergencyData = async () => {
     try {
