@@ -6,7 +6,8 @@ services:
     name: medilocker-web
     env: node
     rootDir: apps/web
-    buildCommand: npm install && npm run build
+    # Initialize NFC collections on every deploy
+    buildCommand: npm install && npm run build && cd ../../ && npm run db:init-nfc
     startCommand: npm run start
     autoDeploy: true
     # Optionally set a health check if you have a simple route
