@@ -30,7 +30,7 @@ export function hashToken(token: string): string {
  * @returns Full NFC URL
  */
 export function generateNfcUrl(token: string, baseUrl: string = 'https://medora.buzz'): string {
-  return `${baseUrl}/emergency/nfc/${token}`;
+  return `${baseUrl}/emergency/public/nfc/${token}`;
 }
 
 /**

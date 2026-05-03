@@ -261,7 +261,6 @@ export default function EmergencyNfcPage() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSuccess={() => {
-          setShowCreateModal(false);
           fetchTokens();
         }}
       />

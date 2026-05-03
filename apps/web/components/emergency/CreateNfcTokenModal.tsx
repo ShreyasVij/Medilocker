@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 
 interface CreateNfcTokenModalProps {
@@ -27,6 +27,25 @@ export const CreateNfcTokenModal: React.FC<CreateNfcTokenModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdToken, setCreatedToken] = useState<any>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setDeviceName('');
+      setOtpRequired(true);
+      setIsLoading(false);
+      setError(null);
+      setCreatedToken(null);
+    }
+  }, [isOpen]);
+
+  const handleClose = () => {
+    setDeviceName('');
+    setOtpRequired(true);
+    setIsLoading(false);
+    setError(null);
+    setCreatedToken(null);
+    onClose();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +96,15 @@ export const CreateNfcTokenModal: React.FC<CreateNfcTokenModalProps> = ({
   if (createdToken) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+            aria-label="Close NFC token info"
+          >
+            ×
+          </button>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">✅ NFC Token Created!</h2>
 
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
@@ -138,9 +165,7 @@ export const CreateNfcTokenModal: React.FC<CreateNfcTokenModalProps> = ({
           <div className="flex gap-3">
             <button
               onClick={() => {
-                setCreatedToken(null);
-                setDeviceName('');
-                onClose();
+                handleClose();
               }}
               className="flex-1 px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition-colors font-medium"
             >
@@ -155,7 +180,15 @@ export const CreateNfcTokenModal: React.FC<CreateNfcTokenModalProps> = ({
   // Form state
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative">
+        <button
+          type="button"
+          onClick={handleClose}
+          className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+          aria-label="Close NFC token creator"
+        >
+          ×
+        </button>
         <h2 className="text-2xl font-bold text-gray-900 mb-4">Create NFC Emergency Card</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
