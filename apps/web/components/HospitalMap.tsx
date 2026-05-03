@@ -462,12 +462,28 @@ const HospitalMap: React.FC<HospitalMapProps> = ({
             setDisplayedDoctors(doctorsData);
             console.log(`[HospitalMap] Loaded ${doctorsData.length} doctors`);
 
-            // Geocode doctor locations
+            // Process doctor locations
             if (doctorsData.length > 0 && isGoogleMapsLoaded()) {
               const geocoder = new google.maps.Geocoder();
               let geocodedCount = 0;
 
               doctorsData.forEach((doctor) => {
+                // If doctor already has coordinates (from pinpoint method), use them directly
+                if (doctor.location.latitude !== undefined && doctor.location.longitude !== undefined) {
+                  doctorCoordinatesRef.current.set(doctor.id, {
+                    lat: doctor.location.latitude,
+                    lng: doctor.location.longitude,
+                  });
+                  geocodedCount++;
+
+                  // All doctors processed, add markers
+                  if (geocodedCount === doctorsData.length) {
+                    addDoctorMarkers(doctorsData, map);
+                  }
+                  return;
+                }
+
+                // Otherwise, geocode the address if all parts are available
                 const addressParts = [
                   doctor.location.hos,
                   doctor.location.city,
@@ -477,22 +493,30 @@ const HospitalMap: React.FC<HospitalMapProps> = ({
 
                 const address = addressParts.join(', ');
 
-                geocoder.geocode({ address }, (results, status) => {
+                if (address) {
+                  geocoder.geocode({ address }, (results, status) => {
+                    geocodedCount++;
+
+                    if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
+                      const { lat, lng } = results[0].geometry.location;
+                      doctorCoordinatesRef.current.set(doctor.id, {
+                        lat: lat(),
+                        lng: lng(),
+                      });
+                    }
+
+                    // All doctors geocoded, add markers
+                    if (geocodedCount === doctorsData.length) {
+                      addDoctorMarkers(doctorsData, map);
+                    }
+                  });
+                } else {
                   geocodedCount++;
-
-                  if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
-                    const { lat, lng } = results[0].geometry.location;
-                    doctorCoordinatesRef.current.set(doctor.id, {
-                      lat: lat(),
-                      lng: lng(),
-                    });
-                  }
-
-                  // All doctors geocoded, add markers
+                  // All doctors processed, add markers
                   if (geocodedCount === doctorsData.length) {
                     addDoctorMarkers(doctorsData, map);
                   }
-                });
+                }
               });
             }
           }

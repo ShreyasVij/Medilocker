@@ -1,5 +1,5 @@
 "use client";
-import { User, LogOut, LayoutDashboard, FileText, AlertTriangle, Calendar, ClipboardList, Users, UsersRound } from "lucide-react";
+import { User, LogOut, LayoutDashboard, FileText, AlertTriangle, Calendar, ClipboardList, Users, UsersRound, Menu, X } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -40,6 +40,7 @@ export function AppNavbar({ userName = "Sanchit Kumar Mishra", userRole = "patie
   const isAuthed = status === "authenticated";
   const effectiveUserName = isAuthed ? (session?.user?.name || session?.user?.email || userName) : userName;
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => {
     let ignore = false;
     async function fetchAvatar() {
@@ -77,7 +78,8 @@ export function AppNavbar({ userName = "Sanchit Kumar Mishra", userRole = "patie
   } as const;
 
   return (
-    <header className="h-20 border-b border-border bg-card px-8 flex items-center justify-between sticky top-0 z-40">
+    <>
+      <header className="h-20 border-b border-border bg-card px-8 flex items-center justify-between sticky top-0 z-40">
       {/* Left section logo */}
       <div className="flex items-center gap-10">
         <Link href="/home" className="flex items-center gap-4 hover:opacity-80 transition-opacity no-underline text-inherit flex-shrink-0">
@@ -85,7 +87,7 @@ export function AppNavbar({ userName = "Sanchit Kumar Mishra", userRole = "patie
           <span className="text-xl font-bold tracking-tight text-foreground hidden lg:block">MediLocker</span>
         </Link>
 
-        {/* Middle section navigation */}
+        {/* Desktop Navigation - Hidden on mobile */}
         <nav className="hidden md:flex items-center gap-2">
           {navItems.map((item) => {
             // FIX: Robust highlight logic
@@ -113,8 +115,21 @@ export function AppNavbar({ userName = "Sanchit Kumar Mishra", userRole = "patie
         </nav>
       </div>
 
+      {/* Mobile Hamburger Menu Button - Only on mobile */}
+      <button
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        className="md:hidden flex items-center justify-center h-10 w-10 rounded-lg hover:bg-muted transition-colors"
+        aria-label="Toggle menu"
+      >
+        {mobileMenuOpen ? (
+          <X className="h-5 w-5 text-foreground" />
+        ) : (
+          <Menu className="h-5 w-5 text-foreground" />
+        )}
+      </button>
+
       {/* Right section  */}
-      <div className="flex items-center gap-6">
+      <div className="hidden md:flex items-center gap-6">
         {isAuthed ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -180,5 +195,73 @@ export function AppNavbar({ userName = "Sanchit Kumar Mishra", userRole = "patie
         )}
       </div>
     </header>
+
+    {/* Mobile Navigation Menu - Only on mobile and when open */}
+    {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 top-20 bg-black/50 z-30" onClick={() => setMobileMenuOpen(false)}>
+          <nav
+            className="absolute top-0 left-0 right-0 bg-card border-b border-border rounded-b-lg shadow-lg overflow-hidden"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {navItems.map((item) => {
+              const isActive = item.href === "/" || item.href === "/doctor"
+                ? pathname === item.href
+                : pathname.startsWith(item.href);
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3.5 text-sm font-medium transition-all no-underline border-b border-border/50 last:border-b-0",
+                    isActive
+                      ? "bg-primary/10 text-primary"
+                      : "text-foreground hover:bg-muted"
+                  )}
+                >
+                  <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                  {item.label}
+                </Link>
+              );
+            })}
+
+            <div className="border-t border-border/50 p-3">
+              {isAuthed ? (
+                <>
+                  <Link
+                    href="/profile"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-foreground hover:bg-muted no-underline"
+                  >
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    Profile Settings
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      signOut({ callbackUrl: "/home" });
+                    }}
+                    className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-destructive hover:bg-destructive/10"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/auth"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center rounded-lg px-3 py-3 text-sm font-medium text-foreground hover:bg-muted no-underline"
+                >
+                  Sign In
+                </Link>
+              )}
+            </div>
+          </nav>
+        </div>
+    )}
+    </>
   );
 }

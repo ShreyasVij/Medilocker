@@ -157,8 +157,8 @@ export async function POST(req: Request) {
         city: toNullIfEmpty(city) as any,
         state: toNullIfEmpty(state) as any,
         country: toNullIfEmpty(country) || "India",
-        latitude: latitude ? parseFloat(latitude) : undefined,
-        longitude: longitude ? parseFloat(longitude) : undefined,
+        latitude: latitude !== undefined && latitude !== null ? parseFloat(String(latitude)) : undefined,
+        longitude: longitude !== undefined && longitude !== null ? parseFloat(String(longitude)) : undefined,
       },
     };
 

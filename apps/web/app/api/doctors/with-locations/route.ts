@@ -35,6 +35,8 @@ export async function GET() {
           city: doc.profile.location.city,
           state: doc.profile.location.state,
           country: doc.profile.location.country || "India",
+          latitude: doc.profile.location.latitude,
+          longitude: doc.profile.location.longitude,
         },
       }));
 
