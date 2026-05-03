@@ -751,6 +751,7 @@ export async function regenerateHealthSummary(userId: string): Promise<void> {
       { userId } as any,
       {
         $set: {
+          ...aiAny,
           id: userId,
           userId,
           summary: normalizedSummary,

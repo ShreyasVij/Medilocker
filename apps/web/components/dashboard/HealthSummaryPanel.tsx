@@ -223,10 +223,8 @@ export function HealthSummaryPanel() {
     return cur;
   }
 
-  // Prefer parsing the stored `summary.summary` string. Only treat it as structured
-  // health output if it contains expected health keys (overall_summary, sections,
-  // or clinical area names). Otherwise, do NOT iterate over the DB document's
-  // top-level fields (id, userId, etc.) — those are metadata.
+  // Prefer parsing the stored `summary.summary` string. Also accept the stored
+  // summary document itself when it already contains structured AI fields.
   let content: any = null;
   const parsedSummary = summary && typeof summary.summary === 'string' ? tryParseJSON(summary.summary) : null;
   if (parsedSummary && typeof parsedSummary === 'object' && !Array.isArray(parsedSummary)) {
@@ -234,6 +232,13 @@ export function HealthSummaryPanel() {
     const hasHealthKeys = keys.some(k => /cardio|cardiovascular|metabolic|blood|kidney|liver|thyroid|anthropometrics|overall|abnormal_findings|advice|sections/i.test(k));
     if (hasHealthKeys || parsedSummary.overall_summary || parsedSummary.sections) {
       content = parsedSummary;
+    }
+  }
+  if (!content && summary && typeof summary === 'object') {
+    const keys = Object.keys(summary);
+    const hasHealthKeys = keys.some(k => /cardio|cardiovascular|metabolic|blood|kidney|liver|thyroid|anthropometrics|overall|abnormal_findings|advice|sections/i.test(k));
+    if (hasHealthKeys || summary.overall_summary || summary.overall_feedback || summary.sections) {
+      content = summary;
     }
   }
   const isStructured = Boolean(content);
@@ -343,24 +348,46 @@ export function HealthSummaryPanel() {
             {isStructured ? (
               <div className="space-y-6">
                 {/* Overall summary (if present) */}
-                {content.overall_summary && (
+                {(content.overall_summary || content.overall_feedback || content.summary) && (
                   <div className="bg-muted/10 p-4 rounded border border-border">
                     <h3 className="text-lg font-semibold text-foreground mb-2">Overall Health</h3>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-foreground">Status</p>
-                        <p className="text-sm text-muted-foreground">{(content.overall_summary && (content.overall_summary.overall_health || content.overall_summary.status)) || 'Unknown'}</p>
+                    {typeof content.overall_summary === 'string' && (
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">{content.overall_summary}</p>
+                    )}
+                    {content.overall_summary && typeof content.overall_summary === 'object' && (
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="font-medium text-foreground">Status</p>
+                          <p className="text-sm text-muted-foreground">{content.overall_summary.overall_health || content.overall_summary.status || 'Unknown'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-foreground">Notes</p>
+                          <p className="text-sm text-muted-foreground max-w-prose whitespace-pre-wrap">{content.overall_summary.feedback || content.overall_summary.summary || ''}</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium text-foreground">Notes</p>
-                        <p className="text-sm text-muted-foreground max-w-prose whitespace-pre-wrap">{(content.overall_summary && (content.overall_summary.feedback || content.overall_summary.summary)) || ''}</p>
+                    )}
+                    {typeof content.overall_feedback === 'string' && (
+                      <p className="text-sm text-muted-foreground mt-3 whitespace-pre-wrap">{content.overall_feedback}</p>
+                    )}
+                    {typeof content.summary === 'string' && !content.overall_summary && (
+                      <p className="text-sm text-muted-foreground mt-3 whitespace-pre-wrap">{content.summary}</p>
+                    )}
+                  </div>
+                )}
+
+                {Array.isArray(content.sections) && content.sections.length > 0 && (
+                  <div className="space-y-4">
+                    {content.sections.map((section: any, idx: number) => (
+                      <div key={section?.heading || idx} className="bg-card rounded border border-border p-4">
+                        <h4 className="font-semibold text-foreground mb-2 capitalize">{section?.heading || `Section ${idx + 1}`}</h4>
+                        <p className="text-muted-foreground whitespace-pre-wrap">{section?.content || 'No information available.'}</p>
                       </div>
-                    </div>
+                    ))}
                   </div>
                 )}
 
                 {/* Render each clinical area (anything except meta keys) */}
-                {Object.keys(content).filter(k => !['overall_summary','generatedAt','documentCount','lastDocumentDate','summary','sections'].includes(k)).map((key) => {
+                {Object.keys(content).filter(k => !['id','userId','ocrTextHash','overall_summary','overall_feedback','generatedAt','documentCount','lastDocumentDate','summary','sections','explanations'].includes(k)).map((key) => {
                   const section = content[key];
                   if (section == null) return null;
                   const keyLower = key.toLowerCase();
