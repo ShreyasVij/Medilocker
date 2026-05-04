@@ -4,10 +4,43 @@ import React, { useEffect, useRef, useState } from 'react';
 import { getUserGPSLocation } from '@/services/hospitalService';
 import { Copy, MapPin, AlertCircle, Loader } from 'lucide-react';
 
+// Local Google Maps type shim for this component build path.
+declare namespace google {
+  namespace maps {
+    class Map {
+      constructor(mapDiv: HTMLElement, opts?: any);
+      setCenter(center: { lat: number; lng: number }): void;
+      setZoom(zoom: number): void;
+    }
+
+    class Marker {
+      constructor(opts?: any);
+      setMap(map: Map | null): void;
+      addListener(eventName: string, handler: (...args: any[]) => void): void;
+      getPosition(): { lat(): number; lng(): number } | null;
+    }
+
+    class InfoWindow {
+      constructor(opts?: any);
+      open(map?: Map, anchor?: any): void;
+      close(): void;
+    }
+
+    class Geocoder {
+      geocode(request: any, callback: (results: any[] | null, status: string) => void): void;
+    }
+
+    const Animation: { DROP: any };
+    const SymbolPath: { CIRCLE: any };
+    const GeocoderStatus: { OK: string };
+    const event: { addListener(target: any, eventName: string, handler: (...args: any[]) => void): void };
+  }
+}
+
 // Google Maps types declaration
 declare global {
   interface Window {
-    google: typeof google;
+    google: any;
   }
 }
 

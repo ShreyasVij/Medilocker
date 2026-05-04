@@ -2,10 +2,52 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
-// Google Maps types declaration
+// Local Google Maps type shim for this component build path.
+declare namespace google {
+  namespace maps {
+    class Map {
+      constructor(mapDiv: HTMLElement, opts?: any);
+      setCenter(center: { lat: number; lng: number }): void;
+      setZoom(zoom: number): void;
+    }
+
+    class Marker {
+      constructor(opts?: any);
+      setMap(map: Map | null): void;
+      addListener(eventName: string, handler: (...args: any[]) => void): void;
+      getPosition(): { lat(): number; lng(): number } | null;
+    }
+
+    class InfoWindow {
+      constructor(opts?: any);
+      open(map?: Map, anchor?: any): void;
+      close(): void;
+    }
+
+    class Geocoder {
+      geocode(request: any, callback: (results: any[] | null, status: string) => void): void;
+    }
+
+    interface MapMouseEvent {
+      latLng?: { lat(): number; lng(): number } | null;
+    }
+
+    const Animation: { DROP: any };
+    const SymbolPath: { CIRCLE: any };
+    const GeocoderStatus: { OK: string };
+    const event: { addListener(target: any, eventName: string, handler: (...args: any[]) => void): void };
+    class Size {
+      constructor(width: number, height: number);
+    }
+    class Point {
+      constructor(x: number, y: number);
+    }
+  }
+}
+
 declare global {
   interface Window {
-    google: typeof google;
+    google: any;
   }
 }
 import { 
@@ -26,6 +68,8 @@ interface Doctor {
     city?: string;
     state?: string;
     country?: string;
+    latitude?: number;
+    longitude?: number;
   };
 }
 

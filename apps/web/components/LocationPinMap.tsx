@@ -2,10 +2,43 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
+// Local Google Maps type shim for this component build path.
+declare namespace google {
+  namespace maps {
+    class Map {
+      constructor(mapDiv: HTMLElement, opts?: any);
+      addListener(eventName: string, handler: (...args: any[]) => void): void;
+    }
+
+    class Marker {
+      constructor(opts?: any);
+      setMap(map: Map | null): void;
+      addListener(eventName: string, handler: (...args: any[]) => void): void;
+      getPosition(): { lat(): number; lng(): number } | null;
+    }
+
+    class InfoWindow {
+      constructor(opts?: any);
+      open(map?: Map, anchor?: any): void;
+    }
+
+    class Geocoder {
+      geocode(request: any, callback: (results: any[] | null, status: string) => void): void;
+    }
+
+    interface MapMouseEvent {
+      latLng?: { lat(): number; lng(): number } | null;
+    }
+
+    const SymbolPath: { CIRCLE: any };
+    const GeocoderStatus: { OK: string };
+  }
+}
+
 // Google Maps types declaration
 declare global {
   interface Window {
-    google: typeof google;
+    google: any;
   }
 }
 import { MapPin, AlertCircle, Loader } from 'lucide-react';
