@@ -1,14 +1,13 @@
 "use client";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import React from "react";
 import HealthOverview from "@/components/dashboard/HealthOverview";
 import { useVitals } from "@/hooks/useVitals";
 import { HealthSummaryPanel } from "@/components/dashboard/HealthSummaryPanel";
 import { ReprocessButton } from "@/components/dashboard/ReprocessButton";
+import { useSession } from "next-auth/react";
 
 function DashboardPageClient() {
+  const { data: session, status } = useSession();
   const {
     vitals,
     groupedVitals,
@@ -20,19 +19,30 @@ function DashboardPageClient() {
     statusColors,
   } = useVitals();
 
+  const displayName = session?.user?.name || session?.user?.email?.split("@")[0] || null;
+  const isReturningUser = status === "authenticated" && !session?.user?.isNewUser;
+  const greeting = isReturningUser
+    ? displayName
+      ? `Welcome back, ${displayName}`
+      : "Welcome back"
+    : "Welcome";
+  const subtitle = isReturningUser
+    ? "Here's an overview of your health records."
+    : "Here's your dashboard overview."
+
   return (
     <div className="max-w-6xl">
-      <div className="mb-8 flex items-start justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Welcome back</h1>
-          <p className="text-muted-foreground mt-1">Here's an overview of your health records.</p>
+          <h1 className="text-2xl font-semibold text-foreground">{greeting}</h1>
+          <p className="text-muted-foreground mt-1">{subtitle}</p>
         </div>
         <ReprocessButton />
       </div>
 
       {/* Two-column layout: left = vitals, right = formatted health summary */}
-      <div className="flex gap-6">
-        <div className="w-1/3 min-w-[320px] max-h-[72vh] overflow-auto">
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <div className="w-full lg:w-1/3 lg:min-w-[320px] max-h-[72vh] overflow-auto">
           <HealthOverview
             vitals={vitals}
             groupedVitals={groupedVitals}
