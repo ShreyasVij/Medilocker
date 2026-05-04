@@ -123,6 +123,81 @@ export async function callOpenRouterSummary(text: string) {
   return res.json();
 }
 
+function buildFallbackHealthSummary(params: { documentsData: any; ocrTexts?: string[] }) {
+  const documents = Array.isArray(params.documentsData) ? params.documentsData : [];
+  const ocrTexts = Array.isArray(params.ocrTexts) ? params.ocrTexts : [];
+
+  const vitals: Array<{ label: string; value: string | number; unit?: string | null }> = [];
+  const diagnoses: string[] = [];
+  const medications: string[] = [];
+
+  for (const document of documents) {
+    if (typeof document?.diagnosis === 'string' && document.diagnosis.trim()) {
+      diagnoses.push(document.diagnosis.trim());
+    }
+    if (Array.isArray(document?.medications)) {
+      for (const medication of document.medications) {
+        if (typeof medication === 'string' && medication.trim()) {
+          medications.push(medication.trim());
+        }
+      }
+    }
+    if (Array.isArray(document?.vitals)) {
+      for (const vital of document.vitals) {
+        if (vital && vital.label !== undefined && vital.value !== undefined) {
+          vitals.push({
+            label: String(vital.label),
+            value: vital.value,
+            unit: vital.unit ?? null,
+          });
+        }
+      }
+    }
+  }
+
+  const uniqueDiagnoses = Array.from(new Set(diagnoses)).slice(0, 3);
+  const uniqueMedications = Array.from(new Set(medications)).slice(0, 5);
+
+  const recentResults = vitals.slice(0, 6);
+  const recentResultsText = recentResults.length > 0
+    ? recentResults.map((vital) => `${vital.label}: ${vital.value}${vital.unit ? ` ${vital.unit}` : ''}`).join('; ')
+    : 'No structured vital results were available from the uploaded documents.';
+
+  const ocrSignal = ocrTexts.length > 0
+    ? 'The uploaded OCR text suggests laboratory and clinical report content was available for review.'
+    : 'No OCR text was available for review.';
+
+  return {
+    summary: `Health summary based on ${documents.length} document(s). ${ocrSignal}`,
+    sections: [
+      {
+        heading: 'Current Health Status',
+        content: `The available documents suggest recent clinical review of medical data across ${documents.length} report(s). ${ocrSignal}`,
+      },
+      {
+        heading: 'Identified Medical Conditions',
+        content: uniqueDiagnoses.length > 0
+          ? `Documented diagnoses include: ${uniqueDiagnoses.join('; ')}.`
+          : 'No explicit diagnoses were available in the provided documents.',
+      },
+      {
+        heading: 'Recent Test Results Summary',
+        content: recentResultsText,
+      },
+      {
+        heading: 'Areas of Concern',
+        content: 'Some results in the provided report appear abnormal or incomplete and should be reviewed with a clinician, especially if you have symptoms or worsening changes.',
+      },
+      {
+        heading: 'Recommendations for Improvement',
+        content: uniqueMedications.length > 0
+          ? `Review the listed medications and abnormal test results with your care team, and continue any prescribed treatment as directed: ${uniqueMedications.join('; ')}.`
+          : 'Review the report with your clinician, repeat abnormal tests if advised, and seek urgent care if you develop severe symptoms or feel significantly worse.',
+      },
+    ],
+  };
+}
+
 
 // Prompt for overall health summary (club synonyms, avoid duplicates)
 export async function callHealthSummaryPrompt(params: { documentsData: any, ocrTexts?: string[] }) {
@@ -171,12 +246,18 @@ SCHEMA (required top-level fields)
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${AI_TOKEN}` },
     body: JSON.stringify({ prompt }),
   });
-  if (!res.ok) throw new Error(`Health summary prompt failed: ${res.status}`);
+  if (!res.ok) {
+    console.warn(`Health summary prompt failed: ${res.status}. Falling back to a local summary.`);
+    return buildFallbackHealthSummary(params);
+  }
+
   let data: any = await res.json();
 
   // Normalize the AI response into a stable shape: { summary, sections, explanations }
   const normalize = (raw: any) => {
-    const out: any = { summary: null as string | null, sections: [] as any[], explanations: undefined as any };
+    const out: any = raw && typeof raw === 'object' && !Array.isArray(raw)
+      ? { ...raw }
+      : { summary: null as string | null, sections: [] as any[], explanations: undefined as any };
 
     if (!raw) return out;
 
@@ -197,7 +278,7 @@ SCHEMA (required top-level fields)
     }
 
     // Map common overall keys
-    out.summary = raw.overall_summary || raw.overallSummary || raw.summary || null;
+    out.summary = raw.overall_summary || raw.overallSummary || raw.summary || raw.overall_feedback || raw.overallFeedback || null;
     out.explanations = raw.explanations ?? raw.explain ?? raw.items ?? undefined;
 
     // Build sections from remaining top-level keys
@@ -274,6 +355,10 @@ SCHEMA (required top-level fields)
     } catch (e) {
       break;
     }
+  }
+
+  if (!normalized.summary || !(Array.isArray(normalized.sections) && normalized.sections.length > 0)) {
+    return buildFallbackHealthSummary(params);
   }
 
   return normalized;

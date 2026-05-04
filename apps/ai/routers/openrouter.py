@@ -11,12 +11,7 @@ router = APIRouter()
 class OpenRouterRequest(BaseModel):
     prompt: str
 
-class OpenRouterResponse(BaseModel):
-    summary: str | None = None
-    sections: list[dict] | None = None
-    explanations: list[dict] | None = None
-
-@router.post("/", response_model=OpenRouterResponse)
+@router.post("/")
 async def openrouter_proxy(payload: OpenRouterRequest, _auth=Depends(verify_service_token)):
     """Proxy to OpenRouter for AI prompts."""
     import json
@@ -46,6 +41,7 @@ async def openrouter_proxy(payload: OpenRouterRequest, _auth=Depends(verify_serv
             # Try to parse as JSON (object or array) and normalize to a stable shape
             try:
                 parsed = json.loads(content)
+                normalized: dict[str, object] = parsed.copy() if isinstance(parsed, dict) else {}
                 summary = None
                 sections: list[dict] = []
                 explanations: list[dict] | None = None
@@ -54,7 +50,13 @@ async def openrouter_proxy(payload: OpenRouterRequest, _auth=Depends(verify_serv
                     log_openrouter_event('openrouter_parse', 'parsed JSON object')
                     explanations = parsed.get('explanations') or parsed.get('explain') or parsed.get('items')
                     sections = parsed.get('sections') or []
-                    summary = parsed.get('summary') or parsed.get('overall_summary') or parsed.get('overallSummary')
+                    summary = (
+                        parsed.get('summary')
+                        or parsed.get('overall_summary')
+                        or parsed.get('overallSummary')
+                        or parsed.get('overall_feedback')
+                        or parsed.get('overallFeedback')
+                    )
                 elif isinstance(parsed, list):
                     log_openrouter_event('openrouter_parse', f'parsed JSON array, len={len(parsed)}')
                     explanations = parsed
@@ -98,10 +100,14 @@ async def openrouter_proxy(payload: OpenRouterRequest, _auth=Depends(verify_serv
                 if not summary:
                     summary = content.strip()[:1000] if content and isinstance(content, str) else None
 
-                return OpenRouterResponse(summary=summary, sections=sections or [], explanations=explanations)
+                normalized['summary'] = summary
+                normalized['sections'] = sections or []
+                if explanations is not None:
+                    normalized['explanations'] = explanations
+                return normalized
             except Exception as e:
                 log_openrouter_event('openrouter_parse_error', f'error={str(e)} content_preview={content[:200]}')
-                return OpenRouterResponse(summary=content)
+                return {'summary': content}
     except Exception as e:
         log_openrouter_event('openrouter_exception', str(e))
         raise HTTPException(status_code=500, detail=str(e))

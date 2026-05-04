@@ -94,19 +94,9 @@ export default function HealthOverview({
   );
 
   // 6. Main Render
-  // Show extracted userVitals (raw) until AI-enriched vitals are available, then only show AI-enriched
-  const hasAIEnriched = vitals && vitals.some((v: any) => v.explanation && v.explanation !== 'No explanation available.');
-  const displayGroupedVitals = hasAIEnriched
-    ? Object.fromEntries(
-        Object.entries(groupedVitals).map(([cat, arr]) => [
-          cat,
-          (Array.isArray(arr) ? arr : []).filter((v: any) =>
-            (v.explanation && v.explanation !== 'No explanation available.') ||
-            (typeof v.advice === 'string' && v.advice.trim() !== '')
-          )
-        ]).filter(([_, arr]) => (Array.isArray(arr) && arr.length > 0))
-      )
-    : groupedVitals;
+  // Keep the latest readings visible even if AI enrichment is partial or missing.
+  // The dashboard should degrade gracefully and never hide the underlying vitals.
+  const displayGroupedVitals = groupedVitals;
 
   return (
     <section>
@@ -119,7 +109,7 @@ export default function HealthOverview({
 
       <div className="space-y-6">
         {orderedCategories.map((category) => {
-          const categoryVitals = displayGroupedVitals[category];
+          const categoryVitals = Array.isArray(displayGroupedVitals[category]) ? displayGroupedVitals[category] : [];
           if (!categoryVitals || categoryVitals.length === 0) return null;
           const Icon = categoryIcons[category] || User;
           const categoryLabel = categoryLabels[category] || category;
@@ -190,7 +180,6 @@ export default function HealthOverview({
                           <span className="font-semibold">What it means: </span>
                           {vital.explanation || 'No explanation available.'}
                         </p>
-                        {/* Always show advice if present, even if explanation is missing */}
                         {typeof vital.advice === 'string' && vital.advice.trim() !== '' && (
                           <div className="mt-2 p-3 rounded bg-yellow-50 border border-yellow-200 text-black whitespace-pre-line">
                             <span className="font-semibold">Advice: </span>

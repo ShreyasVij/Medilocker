@@ -107,12 +107,12 @@ export async function POST() {
 
     const userId = actorId;
 
-    // Get all documents for this user (only active)
+    // Get all documents for this user (active + archived so regeneration matches the dashboard view)
     const docsCol = await getCollection("documents");
     const documents = await docsCol
       .find({ 
         ownerUserId: userId,
-        status: "active"
+        status: { $in: ["active", "archived"] }
       })
       .sort({ createdAt: -1 })
       .toArray();
@@ -197,10 +197,11 @@ export async function POST() {
 
     // Store in database
     const summaryCol = await getCollection<UserHealthSummary>("userHealthSummary");
-    const summaryData: UserHealthSummary = {
+    const summaryData: any = {
+      ...aiResult,
       id: userId,
       userId,
-      summary: aiResult.summary || '',
+      summary: aiResult.summary || aiResult.overall_summary || aiResult.overallFeedback || '',
       sections: Array.isArray(aiResult.sections) ? aiResult.sections : [],
       generatedAt: new Date(),
       documentCount: documents.length,
