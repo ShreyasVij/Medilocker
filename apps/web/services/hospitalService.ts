@@ -3,10 +3,50 @@
  * GPS-First approach: Uses Google Maps Places API to find nearby medical facilities
  */
 
+// Local Google Maps type shim for the shared service build path.
+declare namespace google {
+  namespace maps {
+    class Map {
+      constructor(mapDiv: HTMLElement, opts?: any);
+    }
+
+    class LatLng {
+      constructor(lat: number, lng: number);
+    }
+
+    class Geocoder {
+      geocode(request: any, callback: (results: any[] | null, status: string) => void): void;
+    }
+
+    namespace places {
+      class PlacesService {
+        constructor(map: Map);
+        nearbySearch(request: any, callback: (results: any[] | null, status: string) => void): void;
+        textSearch(request: any, callback: (results: any[] | null, status: string) => void): void;
+        getDetails(request: any, callback: (result: any | null, status: string) => void): void;
+      }
+
+      interface PlaceSearchRequest {
+        location?: LatLng;
+        radius?: number;
+        type?: string;
+      }
+
+      interface TextSearchRequest {
+        query?: string;
+        location?: LatLng;
+        radius?: number;
+      }
+
+      const PlacesServiceStatus: { OK: string };
+    }
+  }
+}
+
 // Google Maps types declaration
 declare global {
   interface Window {
-    google: typeof google;
+    google: any;
   }
 }
 
