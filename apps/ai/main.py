@@ -81,7 +81,7 @@ app.include_router(explain.router, prefix="/explain", tags=["explain"])
 app.include_router(extract.router, prefix="/extract", tags=["extract"])
 app.include_router(vitals.router, prefix="/vitals", tags=["vitals"])
 app.include_router(health_summary.router, prefix="/health-summary", tags=["health-summary"])
-app.include_router(openrouter.router, prefix="/openrouter", tags=["openrouter"])
+app.include_router(openrouter.router, tags=["openrouter"])
 app.include_router(generate_title.router, prefix="/generate-title", tags=["generate-title"])
 
 # Health check endpoint for Render and uptime monitoring
