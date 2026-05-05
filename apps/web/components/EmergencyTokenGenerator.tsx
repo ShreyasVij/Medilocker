@@ -261,9 +261,9 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
     <div className="space-y-6">
       
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="max-w-2xl">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2 leading-tight">
             <ShieldAlert className="h-6 w-6 text-red-600" />
             Emergency QR Code
           </h2>
@@ -276,7 +276,7 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
           <button
             onClick={generateToken}
             disabled={loading}
-            className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center gap-2 font-semibold"
+            className="w-full md:w-auto px-5 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 font-semibold"
           >
             <QrCode className="h-5 w-5" />
             {loading ? 'Generating...' : 'Generate QR Code'}
@@ -297,7 +297,7 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
       
       {/* Generated Token Display */}
       {generatedToken && (
-        <div className="bg-gradient-to-br from-red-50 to-orange-50 border-2 border-red-500 rounded-lg p-6 shadow-lg">
+        <div className="bg-gradient-to-br from-red-50 to-orange-50 border-2 border-red-500 rounded-lg p-4 sm:p-6 shadow-lg">
           
           {/* Warning */}
           <div className="bg-red-600 text-white rounded-lg p-4 mb-6">
@@ -306,13 +306,13 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
           </div>
           
           {/* QR Code and Actions */}
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex-shrink-0">
-              <div className="bg-white p-6 rounded-lg shadow-md border-2 border-gray-200">
+          <div className="flex flex-col md:flex-row gap-5 md:gap-6 items-stretch">
+            <div className="flex-shrink-0 flex justify-center md:justify-start">
+              <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md border-2 border-gray-200 w-full max-w-[320px]">
                 <img
                   src={generatedToken.qrCode}
                   alt="Emergency Access QR Code"
-                  className="w-64 h-64"
+                  className="w-56 h-56 sm:w-64 sm:h-64 mx-auto"
                 />
                 <p className="text-xs text-gray-600 text-center mt-3 font-semibold">
                   SCAN FOR EMERGENCY ACCESS
@@ -320,23 +320,23 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
               </div>
             </div>
             
-            <div className="flex-1 space-y-4">
+            <div className="flex-1 space-y-4 min-w-0">
               
               {/* URL */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Emergency Access URL
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     value={generatedToken.url}
                     readOnly
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm font-mono"
+                    className="w-full min-w-0 px-4 py-2 border border-gray-300 rounded-lg bg-white text-xs sm:text-sm font-mono"
                   />
                   <button
                     onClick={() => copyToClipboard(generatedToken.url)}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition flex items-center gap-2"
+                    className="w-full sm:w-auto px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition flex items-center justify-center gap-2"
                   >
                     {copied ? (
                       <>
@@ -354,17 +354,17 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
               </div>
               
               {/* Print & Download Actions */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <button
                   onClick={printQR}
-                  className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 font-semibold"
+                  className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 font-semibold w-full"
                 >
                   <Printer className="h-5 w-5" />
                   Print QR
                 </button>
                 <button
                   onClick={downloadQR}
-                  className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2 font-semibold"
+                  className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2 font-semibold w-full"
                 >
                   <Download className="h-5 w-5" />
                   Download
@@ -372,18 +372,18 @@ export default function EmergencyTokenGenerator({ profileId }: EmergencyTokenGen
               </div>
               
               {/* Regenerate & Revoke */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   onClick={regenerateQR}
                   disabled={loading}
-                  className="px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-300 transition flex items-center justify-center gap-2 font-semibold"
+                  className="px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-300 transition flex items-center justify-center gap-2 font-semibold w-full"
                 >
                   <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
                   Regenerate
                 </button>
                 <button
                   onClick={() => revokeToken(true)}
-                  className="px-4 py-3 bg-red-700 text-white rounded-lg hover:bg-red-800 transition flex items-center justify-center gap-2 font-semibold"
+                  className="px-4 py-3 bg-red-700 text-white rounded-lg hover:bg-red-800 transition flex items-center justify-center gap-2 font-semibold w-full"
                 >
                   Revoke QR
                 </button>

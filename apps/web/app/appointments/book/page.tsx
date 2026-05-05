@@ -145,21 +145,21 @@ export default function BookAppointmentPage() {
 
           {/* Doctor Search Form */}
           <form onSubmit={handleSearchDoctor} className="mb-6">
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1">
                 <input
                   type="text"
                   placeholder="Enter 16-character doctor code (e.g., ABCD-EFGH-IJKL-MNOP)"
                   value={doctorCode}
                   onChange={(e) => setDoctorCode(e.target.value.toUpperCase())}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base font-mono tracking-[0.12em] sm:tracking-[0.18em]"
                   maxLength={19} // 16 chars + 3 hyphens
                 />
               </div>
               <button
                 type="submit"
                 disabled={searching}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <Search className="h-5 w-5" />
                 {searching ? "Searching..." : "Search"}
@@ -186,26 +186,26 @@ export default function BookAppointmentPage() {
 
           {/* Doctor Profile Card */}
           {doctor && (
-            <div className="border border-gray-200 rounded-lg p-6 bg-gradient-to-r from-blue-50 to-indigo-50">
-              <div className="flex items-start gap-4 mb-6">
+            <div className="border border-gray-200 rounded-lg p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6 text-center sm:text-left">
                 {doctor.profileImageUrl ? (
                   <img
                     src={doctor.profileImageUrl}
                     alt={doctor.name}
-                    className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-md"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-white shadow-md"
                   />
                 ) : (
-                  <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-md">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl sm:text-2xl font-bold shadow-md">
                     {doctor.name.charAt(0)}
                   </div>
                 )}
                 <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-gray-900">{doctor.name}</h2>
-                  <div className="flex items-center gap-2 text-gray-600 mt-1">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">{doctor.name}</h2>
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-gray-600 mt-1">
                     <Award className="h-4 w-4" />
                     <span className="font-medium">{doctor.specialization}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-gray-600 mt-1">
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-gray-600 mt-1">
                     <MapPin className="h-4 w-4" />
                     <span>
                       {doctor.hospital}
@@ -233,7 +233,7 @@ export default function BookAppointmentPage() {
                         value={appointmentDate}
                         onChange={(e) => setAppointmentDate(e.target.value)}
                         min={new Date().toISOString().split("T")[0]}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                         required
                       />
                     </div>
@@ -246,7 +246,7 @@ export default function BookAppointmentPage() {
                       <select
                         value={appointmentTime}
                         onChange={(e) => setAppointmentTime(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                         required
                       >
                         <option value="">Choose a time</option>
@@ -267,7 +267,7 @@ export default function BookAppointmentPage() {
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
                       placeholder="Describe your symptoms or reason for consultation"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                       rows={3}
                     />
                   </div>
@@ -330,14 +330,14 @@ export default function BookAppointmentPage() {
               </div>
               <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
                 <p className="text-xs text-gray-600 font-semibold mb-1">Doctor Code</p>
-                <div className="flex items-center gap-2">
-                  <code className="text-sm font-bold text-green-700">{selectedDoctor.doctorCode}</code>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <code className="text-sm font-bold text-green-700 break-all sm:break-normal">{selectedDoctor.doctorCode}</code>
                   <button
                     onClick={async () => {
                       await navigator.clipboard.writeText(selectedDoctor.doctorCode);
                       alert("Doctor code copied!");
                     }}
-                    className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                    className="w-full sm:w-auto px-3 py-2 bg-green-600 text-white rounded text-xs hover:bg-green-700"
                   >
                     Copy
                   </button>

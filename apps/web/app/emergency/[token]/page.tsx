@@ -129,7 +129,7 @@ export default function EmergencyQRPage() {
   
   const callAmbulance = () => {
     // Default emergency number (customize based on region)
-    window.location.href = 'tel:911';
+    window.location.href = 'tel:112';
   };
   
   const shareLocation = () => {
@@ -402,7 +402,7 @@ export default function EmergencyQRPage() {
                 textAlign: 'center'
               }}
             >
-              🚑 Call Ambulance (911)
+              🚑 Call Ambulance (112)
             </button>
             
             <button
