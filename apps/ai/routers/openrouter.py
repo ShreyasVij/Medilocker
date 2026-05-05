@@ -14,6 +14,12 @@ from ..services.logger import log_openrouter_event
 
 router = APIRouter()
 
+_MODEL_ROTATION: tuple[str, ...] = (
+    "arcee-ai/trinity-mini:free",
+    "liquid/lfm-2.5-1.2b-instruct:free",
+    "nvidia/nemotron-3-nano-30b-a3b:free",
+)
+
 
 class OpenRouterRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -53,7 +59,6 @@ def _build_headers() -> dict[str, str]:
 
 def _build_request_body(prompt: str) -> dict[str, Any]:
     return {
-        "model": os.getenv("OPENROUTER_MODEL", "arcee-ai/trinity-mini:free"),
         "messages": [
             {"role": "system", "content": "You are a concise, reliable assistant."},
             {"role": "user", "content": prompt},
@@ -62,6 +67,19 @@ def _build_request_body(prompt: str) -> dict[str, Any]:
         "max_tokens": 2000,
         "stream": False,
     }
+
+
+def _candidate_models() -> list[str]:
+    models: list[str] = []
+    configured_model = os.getenv("OPENROUTER_MODEL")
+    if configured_model:
+        models.append(configured_model)
+
+    for model in _MODEL_ROTATION:
+        if model not in models:
+            models.append(model)
+
+    return models
 
 
 def _extract_message_content(data: Any) -> str:
@@ -161,67 +179,86 @@ def _normalize_completion(content: str) -> dict[str, object]:
 @router.post("/openrouter/", include_in_schema=False, status_code=status.HTTP_200_OK)
 async def openrouter_proxy(payload: OpenRouterRequest, _auth=Depends(verify_service_token)):
     """Proxy to OpenRouter for AI prompts."""
-    model = os.getenv("OPENROUTER_MODEL", "arcee-ai/trinity-mini:free")
     timeout = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
+    models = _candidate_models()
+    request_body = _build_request_body(payload.prompt)
 
     log_openrouter_event(
         "openrouter_request",
-        f"prompt_len={len(payload.prompt)} model={model}",
+        f"prompt_len={len(payload.prompt)} models={','.join(models)}",
     )
 
-    request_body = _build_request_body(payload.prompt)
+    last_error: Exception | None = None
+    response = None
 
     try:
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
-            response = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers=_build_headers(),
-                json=request_body,
+            for model in models:
+                request_body["model"] = model
+                log_openrouter_event("openrouter_model_attempt", model)
+                try:
+                    response = await client.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers=_build_headers(),
+                        json=request_body,
+                    )
+                except httpx.TimeoutException as exc:
+                    last_error = exc
+                    log_openrouter_event("openrouter_timeout", f"model={model} type={type(exc).__name__} detail={exc}")
+                    continue
+                except httpx.RequestError as exc:
+                    last_error = exc
+                    log_openrouter_event("openrouter_request_error", f"model={model} type={type(exc).__name__} detail={exc}")
+                    continue
+
+                if response.status_code == 200:
+                    break
+
+                response_preview = response.text[:2000]
+                log_openrouter_event(
+                    "openrouter_error",
+                    f"model={model} status={response.status_code} response_preview={response_preview}",
+                )
+                last_error = HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail={
+                        "message": "OpenRouter API returned an error",
+                        "model": model,
+                        "upstream_status": response.status_code,
+                        "upstream_preview": response_preview,
+                    },
+                )
+
+        if response is None:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Failed to contact OpenRouter",
             )
+
+        if response.status_code >= 400:
+            if isinstance(last_error, HTTPException):
+                raise last_error
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="OpenRouter API returned an error",
+            )
+
+        try:
+            data = response.json()
+            content = _extract_message_content(data)
+        except Exception as exc:
+            log_openrouter_event("openrouter_parse_error", f"type={type(exc).__name__} detail={exc} body_preview={response.text[:1000]}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="OpenRouter returned an invalid response",
+            ) from exc
     except HTTPException:
         raise
-    except httpx.TimeoutException as exc:
-        log_openrouter_event("openrouter_timeout", f"type={type(exc).__name__} detail={exc}")
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="OpenRouter request timed out",
-        ) from exc
-    except httpx.RequestError as exc:
-        log_openrouter_event("openrouter_request_error", f"type={type(exc).__name__} detail={exc}")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to contact OpenRouter",
-        ) from exc
     except Exception as exc:
         log_openrouter_event("openrouter_exception", f"type={type(exc).__name__} detail={exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unexpected error while proxying OpenRouter request",
-        ) from exc
-
-    if response.status_code >= 400:
-        response_preview = response.text[:2000]
-        log_openrouter_event(
-            "openrouter_error",
-            f"status={response.status_code} response_preview={response_preview}",
-        )
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail={
-                "message": "OpenRouter API returned an error",
-                "upstream_status": response.status_code,
-                "upstream_preview": response_preview,
-            },
-        )
-
-    try:
-        data = response.json()
-        content = _extract_message_content(data)
-    except Exception as exc:
-        log_openrouter_event("openrouter_parse_error", f"type={type(exc).__name__} detail={exc} body_preview={response.text[:1000]}")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="OpenRouter returned an invalid response",
         ) from exc
 
     log_openrouter_event(
