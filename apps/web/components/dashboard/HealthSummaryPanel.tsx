@@ -61,6 +61,7 @@ export function HealthSummaryPanel() {
           }
           setUserVitalsByCategory(norm);
         }
+        return data.processing;
       } catch (err: any) {
         console.error('Error fetching health summary:', err);
         setError(err.message || 'An unexpected error occurred');
@@ -68,26 +69,35 @@ export function HealthSummaryPanel() {
         setLoading(false);
       }
     }
-    fetchSummary();
-    // Poll while processing or while we have no summary but there are documents
+
     let mounted = true;
-    const poll = setInterval(async () => {
-      if (!mounted) return;
-      try {
-        const res = await fetch('/api/health-summary');
-        if (!res.ok) return;
-        const d = await res.json().catch(() => ({}));
-        if (!mounted) return;
-        setSummary(d.summary || null);
-        // Do not override `documentCount` from summary during polling — keep counts
-        // derived from the documents endpoints to avoid transient mismatches.
-        // stop polling when not processing and we have a summary or documentCount === 0
-        if (!d.processing && (d.summary || d.documentCount === 0)) {
-          clearInterval(poll);
-        }
-      } catch {}
-    }, 3000);
-    return () => { mounted = false; clearInterval(poll); };
+    let poll: ReturnType<typeof setInterval> | null = null;
+
+    fetchSummary().then((isProcessing) => {
+      // Start polling only if the server actively reports processing
+      if (isProcessing && mounted) {
+        poll = setInterval(async () => {
+          if (!mounted) return;
+          try {
+            const res = await fetch('/api/health-summary');
+            if (!res.ok) return;
+            const d = await res.json().catch(() => ({}));
+            if (!mounted) return;
+            setSummary(d.summary || null);
+            // stop polling when no longer processing
+            if (!d.processing) {
+              if (poll) clearInterval(poll);
+              poll = null;
+            }
+          } catch {}
+        }, 5000);
+      }
+    });
+
+    return () => { 
+      mounted = false; 
+      if (poll) clearInterval(poll); 
+    };
   }, []);
 
   // If vitals aren't provided via /api/health-summary response, fetch /api/vitals

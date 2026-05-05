@@ -110,12 +110,32 @@ export function ReprocessButton() {
           consecRef.current = 0;
         }
         // Only disable after two consecutive polls reporting processing and vitals complete
-        setDisabledByServer(consecRef.current >= 2 && shouldConsiderDisable);
-      } catch {}
+        const disabled = consecRef.current >= 2 && shouldConsiderDisable;
+        setDisabledByServer(disabled);
+        return isProc; // Return true if server is processing
+      } catch {
+        return false;
+      }
     }
-    check();
-    const timer = setInterval(check, 3000);
-    return () => { mounted = false; clearInterval(timer); };
+    
+    let timer: ReturnType<typeof setInterval> | null = null;
+    
+    // Check initially once
+    check().then((isProc) => {
+      if (isProc && mounted) {
+         // If server is processing, start polling
+         timer = setInterval(async () => {
+           if (!mounted) return;
+           const currentlyProcessing = await check();
+           if (!currentlyProcessing && timer) {
+             clearInterval(timer);
+             timer = null;
+           }
+         }, 5000);
+      }
+    });
+
+    return () => { mounted = false; if (timer) clearInterval(timer); };
   }, []);
 
   return (
