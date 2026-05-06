@@ -202,21 +202,21 @@ def _safe_parse_json(text: str) -> Dict[str, Any]:
         def extract_string_field(field_name):
             # Match quoted value
             pattern = rf'"{field_name}"\s*:\s*"([^"]*(?:\\"[^"]*)*)"'
-            match = re.search(pattern, text, re.DOTALL)
+            match = re.search(pattern, s, re.DOTALL)
             if match:
                 # Unescape the value
                 val = match.group(1).replace('\\"', '"').replace('\\n', '\n').replace('\\r', '\r').replace('\\t', '\t')
                 return val if val else None
             # Match null
             pattern_null = rf'"{field_name}"\s*:\s*null'
-            if re.search(pattern_null, text):
+            if re.search(pattern_null, s):
                 return None
             return None
         
         # Extract array fields
         def extract_array(field_name):
             pattern = rf'"{field_name}"\s*:\s*\[(.*?)\]'
-            match = re.search(pattern, text, re.DOTALL)
+            match = re.search(pattern, s, re.DOTALL)
             if match:
                 array_content = match.group(1)
                 # Try to parse as JSON
@@ -257,7 +257,7 @@ def _safe_parse_json(text: str) -> Dict[str, Any]:
     except Exception:
         pass
     return {
-        "raw_text": text,
+        "raw_text": s,
         "patient_name": None,
         "dob": None,
         "doctor_name": None,

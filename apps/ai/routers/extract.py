@@ -296,15 +296,15 @@ async def extract_multi(payload: ExtractMultiRequest, _auth=Depends(verify_servi
     if not normalized.get("doctor_name") and isinstance(normalized.get("raw_text"), str):
         raw = normalized.get("raw_text") or ""
         doc = None
-        m = re.search(r"Dr\.?\s+([A-Z][A-Za-z\.]+(?:\s+[A-Z][A-Za=z\.]+)*)", raw)
+        m = re.search(r"Dr\.?\s+([A-Z][A-Za-z\.]+(?:\s+[A-Z][A-Za-z\.]+)*)", raw)
         if m:
             doc = m.group(0)
         else:
-            m2 = re.search(r"([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za=z]+){0,3})\s*,\s*(M\.?D\.?|MBBS|M\.B\.B\.S\.|D\.?O\.?|DO|DM|MCh|FRCS|MRCP)\b", raw)
+            m2 = re.search(r"([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})\s*,\s*(M\.?D\.?|MBBS|M\.B\.B\.S\.|D\.?O\.?|DO|DM|MCh|FRCS|MRCP)\b", raw)
             if m2:
                 doc = f"{m2.group(1)}, {m2.group(2)}"
             else:
-                m3 = re.search(r"\b([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za=z]+){0,3})\b\s*\n\s*(Internal Medicine|Cardiology|Neurology|Oncology|Pediatrics)", raw)
+                m3 = re.search(r"\b([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})\b\s*\n\s*(Internal Medicine|Cardiology|Neurology|Oncology|Pediatrics)", raw)
                 if m3:
                     doc = m3.group(1)
         if doc:
